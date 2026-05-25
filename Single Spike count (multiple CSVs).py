@@ -36,7 +36,7 @@ OUT_DIR_NAME = "spike_counts_summary"
 
 TIME_COLS    = ["time_s", "time", "t", "seconds"]
 
-MIDDLE_WINDOW_SEC = 180.0   # 3 minutes
+MIDDLE_WINDOW_SEC = 1200   # 3 minutes
 
 # Spike detection parameters
 HP_SPIKE_BAND   = (300.0, 3000.0)
@@ -49,7 +49,7 @@ MAX_WIDTH_MS    = 2.0
 REFRACTORY_MS   = 1.0
 
 # Preferred ordering on x-axis
-CONDITIONS_ORDER = ["PBS", "Baseline", "Post(-600mV)", "Post(-1V)"]
+CONDITIONS_ORDER = ["PBS", "Baseline", "Post(-70nA)", "Post(-1V)"]
 
 
 # ================== HELPER FUNCTIONS ==================
@@ -146,7 +146,7 @@ def extract_condition_from_filename(base: str) -> str:
     if ("Baseline" in name or "base" in name):
         return "Baseline"
     if ("6" in name or "Post" in name):
-        return "Post(-600mV)"
+        return "Post(-70nA)"
     if ("1" in name or "ablation1" in name):
         return "Post(-1V)"
 
