@@ -31,6 +31,7 @@ as one continuous trace in time, in the order you specify.
 import os
 import glob
 import math
+import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -81,6 +82,47 @@ MARKER_COLUMN_TOKENS = (
 TRACE_MARKER = "o"
 TRACE_LINEWIDTH = 2.0
 TRACE_COLOR = "tab:blue"
+
+
+def format_window_label(window_sec: float) -> str:
+    if window_sec < 60:
+        return f"{window_sec:g}_sec"
+    return f"{window_sec / 60.0:g}_min"
+
+
+def format_window_axis_value(window_index: int, window_sec: float) -> str:
+    minutes = window_index * (window_sec / 60.0)
+    return f"{minutes:g}"
+
+
+def folded_window_bounds(
+    t0: float,
+    t1: float,
+    window_sec: float,
+    sample_interval_s: float = 0.0,
+) -> list[tuple[float, float]]:
+    """Build windows while folding a trailing partial window into the previous one."""
+    total_dur = max(0.0, float(t1) - float(t0) + max(0.0, float(sample_interval_s)))
+    if total_dur <= 0:
+        return []
+
+    tolerance = max(1e-9, float(window_sec) * 1e-9)
+    full_windows = int(math.floor(total_dur / float(window_sec)))
+    exact_multiple = (
+        full_windows > 0
+        and math.isclose(total_dur, full_windows * float(window_sec), rel_tol=0.0, abs_tol=tolerance)
+    )
+    n_windows = full_windows if exact_multiple else max(1, full_windows)
+
+    bounds: list[tuple[float, float]] = []
+    for window_index in range(n_windows):
+        start_s = float(t0) + window_index * float(window_sec)
+        if window_index == n_windows - 1:
+            end_s = float(t0) + total_dur
+        else:
+            end_s = float(t0) + (window_index + 1) * float(window_sec)
+        bounds.append((start_s, end_s))
+    return bounds
 
 
 # =========================
@@ -293,6 +335,228 @@ def get_channel_columns(df: pd.DataFrame, csv_name: str):
 # =========================
 # MAIN
 # =========================
+
+def _normalise_label_lookup(epoch_labels_by_path=None):
+    lookup = {}
+    if not epoch_labels_by_path:
+        return lookup
+    for key, value in epoch_labels_by_path.items():
+        label = "" if value is None else str(value).strip()
+        lookup[str(key)] = label
+        lookup[os.path.abspath(str(key))] = label
+        lookup[os.path.basename(str(key))] = label
+    return lookup
+
+
+def _epoch_label_for_path(csv_path, lookup):
+    return (
+        lookup.get(os.path.abspath(csv_path))
+        or lookup.get(csv_path)
+        or lookup.get(os.path.basename(csv_path))
+        or ""
+    )
+
+
+def process_csvs(csv_paths, out_dir=None, epoch_labels_by_path=None, window_sec=None):
+    """Process an ordered list of raw CSV files and return the combined output CSV path."""
+    ordered_csv_paths = list(csv_paths)
+    if not ordered_csv_paths:
+        raise FileNotFoundError("No CSV files were provided for spike counting.")
+
+    selected_window_sec = float(window_sec if window_sec is not None else WINDOW_SEC)
+    if selected_window_sec <= 0:
+        raise ValueError("Spike-count window size must be greater than zero.")
+    selected_window_min = selected_window_sec / 60.0
+    selected_window_label = format_window_label(selected_window_sec)
+
+    if out_dir is None:
+        out_dir = os.path.join(os.path.dirname(ordered_csv_paths[0]) or ".", OUT_DIR_NAME)
+    os.makedirs(out_dir, exist_ok=True)
+
+    epoch_lookup = _normalise_label_lookup(epoch_labels_by_path)
+    results_rows = []
+    plot_payload = {}
+
+    for rec_idx, csv_path in enumerate(ordered_csv_paths, start=1):
+        rec_name = os.path.splitext(os.path.basename(csv_path))[0]
+        epoch_label = _epoch_label_for_path(csv_path, epoch_lookup)
+
+        print(f"\n[load] {csv_path}")
+        if epoch_label:
+            print(f"[label] {rec_name}: {epoch_label}")
+        df = pd.read_csv(csv_path)
+
+        if TIME_COL not in df.columns:
+            raise ValueError(
+                f"Time column '{TIME_COL}' not found in {os.path.basename(csv_path)}. "
+                f"Columns: {list(df.columns)[:20]} ..."
+            )
+
+        t = df[TIME_COL].to_numpy(dtype=float)
+
+        chan_cols = get_channel_columns(df, os.path.basename(csv_path))
+        if not chan_cols:
+            raise ValueError(
+                f"No numeric signal channel columns found in {os.path.basename(csv_path)} besides time/markers."
+            )
+
+        for ch in chan_cols:
+            x = df[ch].to_numpy(dtype=float)
+
+            if np.any(~np.isfinite(x)):
+                s = pd.Series(x)
+                x = s.interpolate(limit_direction="both").to_numpy(dtype=float)
+
+            peaks, spike_times, fs = detect_spikes(x, t)
+            print(f"[{rec_name} | {ch}] detected spikes: {len(spike_times)} (fs≈{fs:.2f} Hz)")
+
+            t0 = float(t[0])
+            t1 = float(t[-1])
+            sample_interval_s = 1.0 / float(fs) if np.isfinite(fs) and fs > 0 else 0.0
+            window_bounds = folded_window_bounds(t0, t1, selected_window_sec, sample_interval_s)
+
+            block_rows = []
+            for w, (a, b) in enumerate(window_bounds):
+                cnt = int(np.sum((spike_times >= a) & (spike_times < b)))
+                start_min = (a - t0) / 60.0
+                end_min = (b - t0) / 60.0
+
+                row = {
+                    "recording_index": rec_idx,
+                    "recording_name": rec_name,
+                    "epoch_label": epoch_label,
+                    "channel": ch,
+                    "window_index": w,
+                    "window_start_s": a,
+                    "window_end_s": b,
+                    "window_duration_s": b - a,
+                    "window_label": f"Min {start_min:g}-{end_min:g}",
+                    "spike_count": cnt,
+                    "fs_est_hz": float(fs),
+                    "z_thr": float(SPIKE_Z_THR),
+                    "polarity": POLARITY,
+                    "refractory_ms": float(REFRACTORY_MS),
+                    "hp_lo_hz": float(HP_SPIKE_BAND[0]),
+                    "hp_hi_hz": float(HP_SPIKE_BAND[1]),
+                    "amp_min_uv": AMP_MIN_UV,
+                    "amp_max_uv": AMP_MAX_UV,
+                    "w_min_ms": W_MIN_MS,
+                    "w_max_ms": W_MAX_MS,
+                }
+                results_rows.append(row)
+                block_rows.append(row)
+
+            plot_block = sorted(block_rows, key=lambda r: r["window_index"])
+            if len(plot_block) > 1:
+                plot_block = plot_block[:-1]
+
+            if ch not in plot_payload:
+                plot_payload[ch] = []
+
+            plot_payload[ch].append({
+                "recording_index": rec_idx,
+                "recording_name": rec_name,
+                "rows": plot_block,
+            })
+
+    if not results_rows:
+        raise RuntimeError("No spike-count results were generated.")
+
+    out_table = pd.DataFrame(results_rows)
+    out_name = (
+        "ALL_RECORDINGS__spike_counts_per_min.csv"
+        if math.isclose(selected_window_sec, 60.0)
+        else f"ALL_RECORDINGS__spike_counts_per_{selected_window_label}.csv"
+    )
+    out_csv = os.path.join(out_dir, out_name)
+    out_table.to_csv(out_csv, index=False)
+
+    for ch, blocks in plot_payload.items():
+        fig, ax = plt.subplots(figsize=(16, 5))
+
+        x_cursor = 0
+        x_all = []
+        y_all = []
+        xticks = []
+        xticklabels = []
+        boundary_x_positions = []
+        recording_text_positions = []
+
+        for block in blocks:
+            rows = block["rows"]
+            rec_name = block["recording_name"]
+            n = len(rows)
+            if n == 0:
+                continue
+
+            x_local = np.arange(x_cursor, x_cursor + n)
+            y_local = [r["spike_count"] for r in rows]
+
+            x_all.extend(x_local.tolist())
+            y_all.extend(y_local)
+            xticks.extend(x_local.tolist())
+            xticklabels.extend([format_window_axis_value(int(r["window_index"]), selected_window_sec) for r in rows])
+            recording_text_positions.append((x_cursor + (n - 1) / 2.0, rec_name))
+
+            if x_cursor > 0:
+                boundary_x_positions.append(x_cursor - 0.5)
+            x_cursor += n
+
+        if x_all:
+            ax.plot(
+                x_all,
+                y_all,
+                marker=TRACE_MARKER,
+                linewidth=TRACE_LINEWIDTH,
+                color=TRACE_COLOR,
+                label=ch,
+            )
+
+        for bx in boundary_x_positions:
+            ax.axvline(x=bx, linestyle="--", color="black", alpha=0.7)
+
+        y_top_for_text = max(y_all) if y_all else 1
+        y_top_for_text = max(y_top_for_text, 1)
+
+        for xpos, rec_name in recording_text_positions:
+            ax.text(
+                xpos,
+                y_top_for_text * 1.08,
+                rec_name,
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                weight="bold",
+            )
+
+        ax.set_title(f"Spike count per {selected_window_min:g}-minute window - {ch}")
+        ax.set_ylabel("Spike count")
+        ax.set_xlabel("Continuous time (min across ordered recordings)")
+        ax.set_ylim(bottom=0)
+
+        if xticks:
+            ax.set_xticks(xticks)
+            ax.set_xticklabels(xticklabels, rotation=45, ha="right")
+
+        trace_handle = [Line2D([0], [0], color=TRACE_COLOR, marker=TRACE_MARKER, linewidth=TRACE_LINEWIDTH, label="Spike count")]
+        boundary_handle = []
+        if boundary_x_positions:
+            boundary_handle = [Line2D([0], [0], color="black", linestyle="--", label="Recording boundary")]
+
+        legend1 = ax.legend(handles=trace_handle, loc="upper left", title="Trace")
+        ax.add_artist(legend1)
+        if boundary_handle:
+            legend2 = ax.legend(handles=boundary_handle, loc="upper right", title="Recording boundaries")
+            ax.add_artist(legend2)
+
+        plt.tight_layout()
+        out_png = os.path.join(out_dir, f"ALL_RECORDINGS__{ch}__continuous_spike_count_curve.png")
+        plt.savefig(out_png, dpi=200)
+        plt.close(fig)
+
+    print(f"\n[done] wrote:\n  {out_csv}\n  plots in: {out_dir}")
+    return out_csv
+
 
 def main():
     csv_paths = sorted(glob.glob(os.path.join(CSV_DIR, CSV_GLOB)))
