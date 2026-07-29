@@ -107,6 +107,73 @@ def build_epoch_color_map(epoch_series: pd.Series) -> dict:
     }
 
 
+def is_perfusion_label(value) -> bool:
+    return "perfusion" in str(value).strip().lower()
+
+
+def normalise_epoch_key(value) -> str:
+    return "".join(ch for ch in str(value).strip().lower() if ch.isalnum())
+
+
+def parse_title_mapping(value) -> dict[str, str]:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return {
+            str(key).strip(): str(title).strip()
+            for key, title in value.items()
+            if str(key).strip() and str(title).strip()
+        }
+
+    text = str(value).strip()
+    if not text:
+        return {}
+
+    with contextlib.suppress(json.JSONDecodeError, TypeError, ValueError):
+        parsed = json.loads(text)
+        if isinstance(parsed, dict):
+            return {
+                str(key).strip(): str(title).strip()
+                for key, title in parsed.items()
+                if str(key).strip() and str(title).strip()
+            }
+
+    titles = {}
+    for item in text.split(";"):
+        item = item.strip()
+        if not item:
+            continue
+        if "=" not in item:
+            raise ValueError("Epoch titles must be JSON or semicolon-separated key=title entries.")
+        key, title = item.split("=", 1)
+        key = key.strip()
+        title = title.strip()
+        if key and title:
+            titles[key] = title
+    return titles
+
+
+def title_for_epoch_label(value, epoch_titles: dict[str, str], fallback: str) -> str:
+    if not epoch_titles:
+        return fallback
+
+    label_norm = normalise_epoch_key(value)
+    for key, title in sorted(epoch_titles.items(), key=lambda item: len(normalise_epoch_key(item[0])), reverse=True):
+        key_norm = normalise_epoch_key(key)
+        if key_norm and (key_norm == label_norm or key_norm in label_norm):
+            return title
+
+    if any(term in label_norm for term in ("baseline", "basal", "before", "pre", "control")):
+        return epoch_titles.get("baseline", fallback)
+    if "perfusion" in label_norm:
+        return epoch_titles.get("perfusion", fallback)
+    if any(term in label_norm for term in ("post", "after", "recovery", "washout")):
+        return epoch_titles.get("post", fallback)
+    if any(term in label_norm for term in ("during", "stim", "stimulation", "current")):
+        return epoch_titles.get("stimulation", fallback)
+    return fallback
+
+
 def clean_epoch_name(name: str) -> str:
     """Convert verbose epoch names into cleaner plot labels."""
     s = str(name).strip()
