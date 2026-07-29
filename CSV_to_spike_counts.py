@@ -25,6 +25,8 @@ Behavior:
 import os
 import glob
 import argparse
+import contextlib
+import json
 import pandas as pd
 import numpy as np
 import matplotlib
@@ -59,6 +61,9 @@ BOUNDARY_DESCRIPTION = "x min (x nA)"
 
 Y_LIM_TOP = None
  # set to None for automatic scaling
+
+PERFUSION_TITLE = ""
+PERFUSION_LABEL = ""
 
 EPOCH_COLORS = [
     "#929292FF", "#FFE4D6", "#8BD0F8", "#B6FCAF", "#E1C1FD", "#FFEFAA", "#FFBCBC",  "#FFFD9F"
@@ -109,10 +114,10 @@ def clean_epoch_name(name: str) -> str:
 
     if "baseline" in low:
         return "Baseline"
+    if is_perfusion_label(s):
+        return "Perfusion H2O2"
     if "h2o2" in low:
         return "H2O2 at 0.25 Atm"
-    if "Perfusion" in low:
-        return "Perfusion H2O2"
     if "80na" in low:
         return "-80 nA"
     if "90na" in low:
@@ -341,6 +346,24 @@ def parse_args(argv=None):
         default=PLOT_BIN_SEC,
         help="Spike-count bin size to plot in seconds, e.g. 30, 60, 120, 180, 240, 300, or 600.",
     )
+    parser.add_argument(
+        "--perfusion-title",
+        default=PERFUSION_TITLE,
+        help="Text drawn over plot segments whose epoch label contains Perfusion.",
+    )
+    parser.add_argument(
+        "--perfusion-label",
+        default=PERFUSION_LABEL,
+        help="Legend label to use for epochs whose label contains Perfusion.",
+    )
+    parser.add_argument(
+        "--epoch-titles",
+        default="",
+        help=(
+            "Custom epoch display titles as JSON or semicolon key=title entries, "
+            "e.g. {\"baseline\":\"Control\",\"post 1\":\"Recovery 1\"}."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -368,6 +391,11 @@ def main():
     max_x_ticks = max(1, int(args.max_x_ticks))
     plot_bin_sec = float(args.plot_bin_sec)
     plot_bin_label = format_bin_label(plot_bin_sec)
+    perfusion_title = args.perfusion_title.strip()
+    perfusion_label = args.perfusion_label.strip()
+    epoch_titles = parse_title_mapping(args.epoch_titles)
+    if perfusion_title and not any(normalise_epoch_key(key) == "perfusion" for key in epoch_titles):
+        epoch_titles["perfusion"] = perfusion_title
     os.makedirs(out_dir, exist_ok=True)
 
     print(f"Using input CSV:\n  {csv_path}")
@@ -418,11 +446,20 @@ def main():
     df["recording_index"] = df["recording_index"].astype(int)
     df["window_index"] = df["window_index"].astype(int)
     df["epoch_label_clean"] = df["epoch_label"].apply(clean_epoch_name)
-
-   # after:
-    # df["epoch_label_clean"] = df["epoch_label"].apply(clean_epoch_name)
+    df["epoch_label_clean"] = df.apply(
+        lambda row: (
+            perfusion_label
+            if perfusion_label and is_perfusion_label(row["epoch_label"])
+            else title_for_epoch_label(row["epoch_label"], epoch_titles, row["epoch_label_clean"])
+        ),
+        axis=1,
+    )
 
     df = rebin_spike_counts(df, plot_bin_sec)
+    df["epoch_label_plot_text"] = df.apply(
+        lambda row: title_for_epoch_label(row["epoch_label"], epoch_titles, row["epoch_label_clean"]),
+        axis=1,
+    )
 
     epoch_color_map = build_epoch_color_map(df["epoch_label_clean"])
 
@@ -488,7 +525,7 @@ def main():
 
                 # label position
                 midpoint = (start + end) / 2.0
-                label_positions.append((midpoint, epoch))
+                label_positions.append((midpoint, block["epoch_label_plot_text"].iloc[0]))
 
                 # draw boundary between segments
                 if start > 0:

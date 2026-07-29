@@ -1,0 +1,894 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1705.935312pt" height="304.849312pt" viewBox="0 0 1705.935312 304.849312" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-07-29T17:29:28.982306</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.10.6, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 304.849312 
+L 1705.935312 304.849312 
+L 1705.935312 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 45.985313 278.504 
+L 256.721027 278.504 
+L 256.721027 61.704 
+L 45.985313 61.704 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_1">
+    <path d="M 45.985313 164.400625 
+L 256.721027 164.400625 
+" clip-path="url(#p4ee489736b)" style="fill: none; stroke: #000000; stroke-width: 0.9; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_2">
+      <defs>
+       <path id="m82b7d17f3e" d="M 0 0 
+L 0 4 
+" style="stroke: #000000"/>
+      </defs>
+      <g>
+       <use xlink:href="#m82b7d17f3e" x="151.35317" y="278.504" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: middle" x="151.35317" y="295.661812" transform="rotate(-0 151.35317 295.661812)">Pre Control</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_3">
+      <defs>
+       <path id="m6d1a6e41e9" d="M 0 0 
+L -4 0 
+" style="stroke: #000000"/>
+      </defs>
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="45.985313" y="256.437512" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: end" x="38.485313" y="260.016418" transform="rotate(-0 38.485313 260.016418)">−60</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="45.985313" y="225.75855" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: end" x="38.485313" y="229.337456" transform="rotate(-0 38.485313 229.337456)">−40</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="45.985313" y="195.079588" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: end" x="38.485313" y="198.658494" transform="rotate(-0 38.485313 198.658494)">−20</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_6">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="45.985313" y="164.400625" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_5">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: end" x="38.485313" y="167.979532" transform="rotate(-0 38.485313 167.979532)">0</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="45.985313" y="133.721663" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: end" x="38.485313" y="137.300569" transform="rotate(-0 38.485313 137.300569)">20</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="45.985313" y="103.042701" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: end" x="38.485313" y="106.621607" transform="rotate(-0 38.485313 106.621607)">40</text>
+     </g>
+    </g>
+    <g id="ytick_7">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="45.985313" y="72.363739" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: end" x="38.485313" y="75.942645" transform="rotate(-0 38.485313 75.942645)">60</text>
+     </g>
+    </g>
+    <g id="text_9">
+     <text style="font-size: 11px; font-family: 'Arial'; text-anchor: middle" x="15.207656" y="170.104" transform="rotate(-90 15.207656 170.104)">Firing change from Pre Control (%)</text>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 95.795572 164.400625 
+L 206.910767 164.400625 
+L 206.910767 259.374588 
+L 95.795572 259.374588 
+z
+" clip-path="url(#p4ee489736b)" style="fill: #ffffff; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 45.985313 278.504 
+L 45.985313 61.704 
+" style="fill: none; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 45.985313 278.504 
+L 256.721027 278.504 
+" style="fill: none; stroke: #000000; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_1">
+    <path d="M 151.35317 261.495909 
+C 151.91575 261.495909 152.455365 261.272393 152.85317 260.874588 
+C 153.250974 260.476784 153.47449 259.937169 153.47449 259.374588 
+C 153.47449 258.812008 153.250974 258.272393 152.85317 257.874588 
+C 152.455365 257.476784 151.91575 257.253268 151.35317 257.253268 
+C 150.790589 257.253268 150.250974 257.476784 149.85317 257.874588 
+C 149.455365 258.272393 149.231849 258.812008 149.231849 259.374588 
+C 149.231849 259.937169 149.455365 260.476784 149.85317 260.874588 
+C 150.250974 261.272393 150.790589 261.495909 151.35317 261.495909 
+z
+" clip-path="url(#p4ee489736b)" style="fill: #555555; fill-opacity: 0.75"/>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 12px; font-family: 'Arial'; text-anchor: middle" x="151.35317" y="55.704" transform="rotate(-0 151.35317 55.704)">A-005</text>
+   </g>
+  </g>
+  <g id="axes_2">
+   <g id="patch_6">
+    <path d="M 286.321027 278.504 
+L 497.056741 278.504 
+L 497.056741 61.704 
+L 286.321027 61.704 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_10">
+    <path d="M 286.321027 164.400625 
+L 497.056741 164.400625 
+" clip-path="url(#p0775fdd8de)" style="fill: none; stroke: #000000; stroke-width: 0.9; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_3">
+    <g id="xtick_2">
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#m82b7d17f3e" x="391.688884" y="278.504" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: middle" x="391.688884" y="295.661812" transform="rotate(-0 391.688884 295.661812)">Pre Control</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_4">
+    <g id="ytick_8">
+     <g id="line2d_12">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="286.321027" y="256.437512" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_9">
+     <g id="line2d_13">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="286.321027" y="225.75855" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_10">
+     <g id="line2d_14">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="286.321027" y="195.079588" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_11">
+     <g id="line2d_15">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="286.321027" y="164.400625" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_12">
+     <g id="line2d_16">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="286.321027" y="133.721663" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_13">
+     <g id="line2d_17">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="286.321027" y="103.042701" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_14">
+     <g id="line2d_18">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="286.321027" y="72.363739" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="text_12">
+     <text style="font-size: 11px; font-family: 'Arial'; text-anchor: middle" x="276.005871" y="170.104" transform="rotate(-90 276.005871 170.104)">Firing change from Pre Control (%)</text>
+    </g>
+   </g>
+   <g id="patch_7">
+    <path d="M 336.131287 164.400625 
+L 447.246481 164.400625 
+L 447.246481 181.443345 
+L 336.131287 181.443345 
+z
+" clip-path="url(#p0775fdd8de)" style="fill: #ffffff; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 286.321027 278.504 
+L 286.321027 61.704 
+" style="fill: none; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_9">
+    <path d="M 286.321027 278.504 
+L 497.056741 278.504 
+" style="fill: none; stroke: #000000; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_2">
+    <path d="M 391.688884 183.564665 
+C 392.251465 183.564665 392.791079 183.341149 393.188884 182.943345 
+C 393.586689 182.54554 393.810204 182.005925 393.810204 181.443345 
+C 393.810204 180.880764 393.586689 180.341149 393.188884 179.943345 
+C 392.791079 179.54554 392.251465 179.322024 391.688884 179.322024 
+C 391.126303 179.322024 390.586689 179.54554 390.188884 179.943345 
+C 389.791079 180.341149 389.567564 180.880764 389.567564 181.443345 
+C 389.567564 182.005925 389.791079 182.54554 390.188884 182.943345 
+C 390.586689 183.341149 391.126303 183.564665 391.688884 183.564665 
+z
+" clip-path="url(#p0775fdd8de)" style="fill: #555555; fill-opacity: 0.75"/>
+   </g>
+   <g id="text_13">
+    <text style="font-size: 12px; font-family: 'Arial'; text-anchor: middle" x="391.688884" y="55.704" transform="rotate(-0 391.688884 55.704)">A-008</text>
+   </g>
+  </g>
+  <g id="axes_3">
+   <g id="patch_10">
+    <path d="M 526.656741 278.504 
+L 737.392455 278.504 
+L 737.392455 61.704 
+L 526.656741 61.704 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_19">
+    <path d="M 526.656741 164.400625 
+L 737.392455 164.400625 
+" clip-path="url(#p77a250d3f2)" style="fill: none; stroke: #000000; stroke-width: 0.9; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_5">
+    <g id="xtick_3">
+     <g id="line2d_20">
+      <g>
+       <use xlink:href="#m82b7d17f3e" x="632.024598" y="278.504" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_14">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: middle" x="632.024598" y="295.661812" transform="rotate(-0 632.024598 295.661812)">Pre Control</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_6">
+    <g id="ytick_15">
+     <g id="line2d_21">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="526.656741" y="256.437512" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_16">
+     <g id="line2d_22">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="526.656741" y="225.75855" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_17">
+     <g id="line2d_23">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="526.656741" y="195.079588" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_18">
+     <g id="line2d_24">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="526.656741" y="164.400625" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_19">
+     <g id="line2d_25">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="526.656741" y="133.721663" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_20">
+     <g id="line2d_26">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="526.656741" y="103.042701" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_21">
+     <g id="line2d_27">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="526.656741" y="72.363739" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="text_15">
+     <text style="font-size: 11px; font-family: 'Arial'; text-anchor: middle" x="516.341585" y="170.104" transform="rotate(-90 516.341585 170.104)">Firing change from Pre Control (%)</text>
+    </g>
+   </g>
+   <g id="patch_11">
+    <path d="M 576.467001 164.400625 
+L 687.582196 164.400625 
+L 687.582196 196.965917 
+L 576.467001 196.965917 
+z
+" clip-path="url(#p77a250d3f2)" style="fill: #ffffff; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_12">
+    <path d="M 526.656741 278.504 
+L 526.656741 61.704 
+" style="fill: none; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 526.656741 278.504 
+L 737.392455 278.504 
+" style="fill: none; stroke: #000000; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_3">
+    <path d="M 632.024598 199.087237 
+C 632.587179 199.087237 633.126794 198.863722 633.524598 198.465917 
+C 633.922403 198.068112 634.145919 197.528498 634.145919 196.965917 
+C 634.145919 196.403336 633.922403 195.863722 633.524598 195.465917 
+C 633.126794 195.068112 632.587179 194.844597 632.024598 194.844597 
+C 631.462017 194.844597 630.922403 195.068112 630.524598 195.465917 
+C 630.126794 195.863722 629.903278 196.403336 629.903278 196.965917 
+C 629.903278 197.528498 630.126794 198.068112 630.524598 198.465917 
+C 630.922403 198.863722 631.462017 199.087237 632.024598 199.087237 
+z
+" clip-path="url(#p77a250d3f2)" style="fill: #555555; fill-opacity: 0.75"/>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 12px; font-family: 'Arial'; text-anchor: middle" x="632.024598" y="55.704" transform="rotate(-0 632.024598 55.704)">A-009</text>
+   </g>
+  </g>
+  <g id="axes_4">
+   <g id="patch_14">
+    <path d="M 766.992455 278.504 
+L 977.72817 278.504 
+L 977.72817 61.704 
+L 766.992455 61.704 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_28">
+    <path d="M 766.992455 164.400625 
+L 977.72817 164.400625 
+" clip-path="url(#p2d846a5e63)" style="fill: none; stroke: #000000; stroke-width: 0.9; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_7">
+    <g id="xtick_4">
+     <g id="line2d_29">
+      <g>
+       <use xlink:href="#m82b7d17f3e" x="872.360312" y="278.504" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_17">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: middle" x="872.360312" y="295.661812" transform="rotate(-0 872.360312 295.661812)">Pre Control</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_8">
+    <g id="ytick_22">
+     <g id="line2d_30">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="766.992455" y="256.437512" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_23">
+     <g id="line2d_31">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="766.992455" y="225.75855" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_24">
+     <g id="line2d_32">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="766.992455" y="195.079588" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_25">
+     <g id="line2d_33">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="766.992455" y="164.400625" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_26">
+     <g id="line2d_34">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="766.992455" y="133.721663" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_27">
+     <g id="line2d_35">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="766.992455" y="103.042701" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_28">
+     <g id="line2d_36">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="766.992455" y="72.363739" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="text_18">
+     <text style="font-size: 11px; font-family: 'Arial'; text-anchor: middle" x="756.677299" y="170.104" transform="rotate(-90 756.677299 170.104)">Firing change from Pre Control (%)</text>
+    </g>
+   </g>
+   <g id="patch_15">
+    <path d="M 816.802715 164.400625 
+L 927.91791 164.400625 
+L 927.91791 197.95407 
+L 816.802715 197.95407 
+z
+" clip-path="url(#p2d846a5e63)" style="fill: #ffffff; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_16">
+    <path d="M 766.992455 278.504 
+L 766.992455 61.704 
+" style="fill: none; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_17">
+    <path d="M 766.992455 278.504 
+L 977.72817 278.504 
+" style="fill: none; stroke: #000000; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_4">
+    <path d="M 872.360312 200.07539 
+C 872.922893 200.07539 873.462508 199.851875 873.860312 199.45407 
+C 874.258117 199.056265 874.481633 198.516651 874.481633 197.95407 
+C 874.481633 197.391489 874.258117 196.851875 873.860312 196.45407 
+C 873.462508 196.056265 872.922893 195.83275 872.360312 195.83275 
+C 871.797732 195.83275 871.258117 196.056265 870.860312 196.45407 
+C 870.462508 196.851875 870.238992 197.391489 870.238992 197.95407 
+C 870.238992 198.516651 870.462508 199.056265 870.860312 199.45407 
+C 871.258117 199.851875 871.797732 200.07539 872.360312 200.07539 
+z
+" clip-path="url(#p2d846a5e63)" style="fill: #555555; fill-opacity: 0.75"/>
+   </g>
+   <g id="text_19">
+    <text style="font-size: 12px; font-family: 'Arial'; text-anchor: middle" x="872.360312" y="55.704" transform="rotate(-0 872.360312 55.704)">A-010</text>
+   </g>
+  </g>
+  <g id="axes_5">
+   <g id="patch_18">
+    <path d="M 1007.32817 278.504 
+L 1218.063884 278.504 
+L 1218.063884 61.704 
+L 1007.32817 61.704 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_37">
+    <path d="M 1007.32817 164.400625 
+L 1218.063884 164.400625 
+" clip-path="url(#pa51848f029)" style="fill: none; stroke: #000000; stroke-width: 0.9; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_9">
+    <g id="xtick_5">
+     <g id="line2d_38">
+      <g>
+       <use xlink:href="#m82b7d17f3e" x="1112.696027" y="278.504" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_20">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: middle" x="1112.696027" y="295.661812" transform="rotate(-0 1112.696027 295.661812)">Pre Control</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_10">
+    <g id="ytick_29">
+     <g id="line2d_39">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1007.32817" y="256.437512" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_30">
+     <g id="line2d_40">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1007.32817" y="225.75855" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_31">
+     <g id="line2d_41">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1007.32817" y="195.079588" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_32">
+     <g id="line2d_42">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1007.32817" y="164.400625" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_33">
+     <g id="line2d_43">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1007.32817" y="133.721663" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_34">
+     <g id="line2d_44">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1007.32817" y="103.042701" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_35">
+     <g id="line2d_45">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1007.32817" y="72.363739" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="text_21">
+     <text style="font-size: 11px; font-family: 'Arial'; text-anchor: middle" x="997.013013" y="170.104" transform="rotate(-90 997.013013 170.104)">Firing change from Pre Control (%)</text>
+    </g>
+   </g>
+   <g id="patch_19">
+    <path d="M 1057.138429 164.400625 
+L 1168.253624 164.400625 
+L 1168.253624 195.492018 
+L 1057.138429 195.492018 
+z
+" clip-path="url(#pa51848f029)" style="fill: #ffffff; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_20">
+    <path d="M 1007.32817 278.504 
+L 1007.32817 61.704 
+" style="fill: none; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_21">
+    <path d="M 1007.32817 278.504 
+L 1218.063884 278.504 
+" style="fill: none; stroke: #000000; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_5">
+    <path d="M 1112.696027 197.613338 
+C 1113.258608 197.613338 1113.798222 197.389822 1114.196027 196.992018 
+C 1114.593831 196.594213 1114.817347 196.054599 1114.817347 195.492018 
+C 1114.817347 194.929437 1114.593831 194.389822 1114.196027 193.992018 
+C 1113.798222 193.594213 1113.258608 193.370697 1112.696027 193.370697 
+C 1112.133446 193.370697 1111.593831 193.594213 1111.196027 193.992018 
+C 1110.798222 194.389822 1110.574706 194.929437 1110.574706 195.492018 
+C 1110.574706 196.054599 1110.798222 196.594213 1111.196027 196.992018 
+C 1111.593831 197.389822 1112.133446 197.613338 1112.696027 197.613338 
+z
+" clip-path="url(#pa51848f029)" style="fill: #555555; fill-opacity: 0.75"/>
+   </g>
+   <g id="text_22">
+    <text style="font-size: 12px; font-family: 'Arial'; text-anchor: middle" x="1112.696027" y="55.704" transform="rotate(-0 1112.696027 55.704)">A-011</text>
+   </g>
+  </g>
+  <g id="axes_6">
+   <g id="patch_22">
+    <path d="M 1247.663884 278.504 
+L 1458.399598 278.504 
+L 1458.399598 61.704 
+L 1247.663884 61.704 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_46">
+    <path d="M 1247.663884 164.400625 
+L 1458.399598 164.400625 
+" clip-path="url(#p5ee3000699)" style="fill: none; stroke: #000000; stroke-width: 0.9; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_11">
+    <g id="xtick_6">
+     <g id="line2d_47">
+      <g>
+       <use xlink:href="#m82b7d17f3e" x="1353.031741" y="278.504" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_23">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: middle" x="1353.031741" y="295.661812" transform="rotate(-0 1353.031741 295.661812)">Pre Control</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_12">
+    <g id="ytick_36">
+     <g id="line2d_48">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1247.663884" y="256.437512" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_37">
+     <g id="line2d_49">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1247.663884" y="225.75855" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_38">
+     <g id="line2d_50">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1247.663884" y="195.079588" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_39">
+     <g id="line2d_51">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1247.663884" y="164.400625" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_40">
+     <g id="line2d_52">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1247.663884" y="133.721663" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_41">
+     <g id="line2d_53">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1247.663884" y="103.042701" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_42">
+     <g id="line2d_54">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1247.663884" y="72.363739" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="text_24">
+     <text style="font-size: 11px; font-family: 'Arial'; text-anchor: middle" x="1237.348728" y="170.104" transform="rotate(-90 1237.348728 170.104)">Firing change from Pre Control (%)</text>
+    </g>
+   </g>
+   <g id="patch_23">
+    <path d="M 1297.474144 164.400625 
+L 1408.589338 164.400625 
+L 1408.589338 99.962824 
+L 1297.474144 99.962824 
+z
+" clip-path="url(#p5ee3000699)" style="fill: #ffffff; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_24">
+    <path d="M 1247.663884 278.504 
+L 1247.663884 61.704 
+" style="fill: none; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_25">
+    <path d="M 1247.663884 278.504 
+L 1458.399598 278.504 
+" style="fill: none; stroke: #000000; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_6">
+    <path d="M 1353.031741 102.084144 
+C 1353.594322 102.084144 1354.133936 101.860628 1354.531741 101.462824 
+C 1354.929546 101.065019 1355.153061 100.525404 1355.153061 99.962824 
+C 1355.153061 99.400243 1354.929546 98.860628 1354.531741 98.462824 
+C 1354.133936 98.065019 1353.594322 97.841503 1353.031741 97.841503 
+C 1352.46916 97.841503 1351.929546 98.065019 1351.531741 98.462824 
+C 1351.133936 98.860628 1350.910421 99.400243 1350.910421 99.962824 
+C 1350.910421 100.525404 1351.133936 101.065019 1351.531741 101.462824 
+C 1351.929546 101.860628 1352.46916 102.084144 1353.031741 102.084144 
+z
+" clip-path="url(#p5ee3000699)" style="fill: #555555; fill-opacity: 0.75"/>
+   </g>
+   <g id="text_25">
+    <text style="font-size: 12px; font-family: 'Arial'; text-anchor: middle" x="1353.031741" y="55.704" transform="rotate(-0 1353.031741 55.704)">A-014</text>
+   </g>
+  </g>
+  <g id="axes_7">
+   <g id="patch_26">
+    <path d="M 1487.999598 278.504 
+L 1698.735312 278.504 
+L 1698.735312 61.704 
+L 1487.999598 61.704 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_55">
+    <path d="M 1487.999598 164.400625 
+L 1698.735312 164.400625 
+" clip-path="url(#p870f870c86)" style="fill: none; stroke: #000000; stroke-width: 0.9; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_13">
+    <g id="xtick_7">
+     <g id="line2d_56">
+      <g>
+       <use xlink:href="#m82b7d17f3e" x="1593.367455" y="278.504" style="stroke: #000000"/>
+      </g>
+     </g>
+     <g id="text_26">
+      <text style="font-size: 10px; font-family: 'Arial'; text-anchor: middle" x="1593.367455" y="295.661812" transform="rotate(-0 1593.367455 295.661812)">Pre Control</text>
+     </g>
+    </g>
+   </g>
+   <g id="matplotlib.axis_14">
+    <g id="ytick_43">
+     <g id="line2d_57">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1487.999598" y="256.437512" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_44">
+     <g id="line2d_58">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1487.999598" y="225.75855" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_45">
+     <g id="line2d_59">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1487.999598" y="195.079588" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_46">
+     <g id="line2d_60">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1487.999598" y="164.400625" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_47">
+     <g id="line2d_61">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1487.999598" y="133.721663" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_48">
+     <g id="line2d_62">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1487.999598" y="103.042701" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="ytick_49">
+     <g id="line2d_63">
+      <g>
+       <use xlink:href="#m6d1a6e41e9" x="1487.999598" y="72.363739" style="stroke: #000000"/>
+      </g>
+     </g>
+    </g>
+    <g id="text_27">
+     <text style="font-size: 11px; font-family: 'Arial'; text-anchor: middle" x="1477.684442" y="170.104" transform="rotate(-90 1477.684442 170.104)">Firing change from Pre Control (%)</text>
+    </g>
+   </g>
+   <g id="patch_27">
+    <path d="M 1537.809858 164.400625 
+L 1648.925053 164.400625 
+L 1648.925053 128.961696 
+L 1537.809858 128.961696 
+z
+" clip-path="url(#p870f870c86)" style="fill: #ffffff; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_28">
+    <path d="M 1487.999598 278.504 
+L 1487.999598 61.704 
+" style="fill: none; stroke: #000000; stroke-width: 1.1; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_29">
+    <path d="M 1487.999598 278.504 
+L 1698.735312 278.504 
+" style="fill: none; stroke: #000000; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_7">
+    <path d="M 1593.367455 131.083017 
+C 1593.930036 131.083017 1594.469651 130.859501 1594.867455 130.461696 
+C 1595.26526 130.063892 1595.488776 129.524277 1595.488776 128.961696 
+C 1595.488776 128.399116 1595.26526 127.859501 1594.867455 127.461696 
+C 1594.469651 127.063892 1593.930036 126.840376 1593.367455 126.840376 
+C 1592.804875 126.840376 1592.26526 127.063892 1591.867455 127.461696 
+C 1591.469651 127.859501 1591.246135 128.399116 1591.246135 128.961696 
+C 1591.246135 129.524277 1591.469651 130.063892 1591.867455 130.461696 
+C 1592.26526 130.859501 1592.804875 131.083017 1593.367455 131.083017 
+z
+" clip-path="url(#p870f870c86)" style="fill: #555555; fill-opacity: 0.75"/>
+   </g>
+   <g id="text_28">
+    <text style="font-size: 12px; font-family: 'Arial'; text-anchor: middle" x="1593.367455" y="55.704" transform="rotate(-0 1593.367455 55.704)">A-015</text>
+   </g>
+  </g>
+  <g id="text_29">
+   <text style="font-size: 13px; font-family: 'Arial'; text-anchor: middle" x="852.735313" y="16.505156" transform="rotate(-0 852.735313 16.505156)">Pre Control first half vs second half</text>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="p4ee489736b">
+   <rect x="45.985313" y="61.704" width="210.735714" height="216.8"/>
+  </clipPath>
+  <clipPath id="p0775fdd8de">
+   <rect x="286.321027" y="61.704" width="210.735714" height="216.8"/>
+  </clipPath>
+  <clipPath id="p77a250d3f2">
+   <rect x="526.656741" y="61.704" width="210.735714" height="216.8"/>
+  </clipPath>
+  <clipPath id="p2d846a5e63">
+   <rect x="766.992455" y="61.704" width="210.735714" height="216.8"/>
+  </clipPath>
+  <clipPath id="pa51848f029">
+   <rect x="1007.32817" y="61.704" width="210.735714" height="216.8"/>
+  </clipPath>
+  <clipPath id="p5ee3000699">
+   <rect x="1247.663884" y="61.704" width="210.735714" height="216.8"/>
+  </clipPath>
+  <clipPath id="p870f870c86">
+   <rect x="1487.999598" y="61.704" width="210.735714" height="216.8"/>
+  </clipPath>
+ </defs>
+</svg>

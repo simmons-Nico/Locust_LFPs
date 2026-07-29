@@ -55,6 +55,21 @@ EPOCH_ROW_COLORS = {
 
 PERFUSION_CONCENTRATIONS = ("10mM", "1mM", "100uM")
 
+EPOCH_TITLE_FIELDS = (
+    ("baseline", "Baseline", "Baseline"),
+    ("during", "During", "During"),
+    ("stimulation", "Stimulation", "Stimulation"),
+    ("perfusion", "Perfusion", "Perfusion"),
+    ("post", "Post", "Post"),
+    ("post 1", "Post 1", "Post 1"),
+    ("post 2", "Post 2", "Post 2"),
+    ("post 3", "Post 3", "Post 3"),
+)
+EPOCH_TITLE_DEFAULTS = {
+    key: default
+    for key, _label, default in EPOCH_TITLE_FIELDS
+}
+
 COMBINE_COLUMN_ALIASES = {
     "recording_index": ("recording_index", "recording", "recording_number", "recording_id"),
     "recording_name": ("recording_name", "recording", "recording_id", "file_name", "filename"),
@@ -518,7 +533,11 @@ class LocustPipelineApp:
         self.continuous_dpi_var = tk.StringVar(value="200")
         self.continuous_max_x_ticks_var = tk.StringVar(value="24")
         self.continuous_plot_bin_var = tk.StringVar(value="1 min")
-        self.perfusion_title_var = tk.StringVar(value="Perfusion")
+        self.epoch_title_vars = {
+            key: tk.StringVar(value=default)
+            for key, _label, default in EPOCH_TITLE_FIELDS
+        }
+        self.perfusion_title_var = self.epoch_title_vars["perfusion"]
         self.perfusion_substance_var = tk.StringVar(value="")
         self.perfusion_concentration_var = tk.StringVar(value="1mM")
 
@@ -539,32 +558,43 @@ class LocustPipelineApp:
         self._path_row(frame, row, "Plot output folder", self.plot_out_dir_var, self._browse_plot_out_dir)
 
         row += 1
-        perfusion_box = ttk.LabelFrame(frame, text="Perfusion epoch details", padding=10)
-        perfusion_box.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(8, 4))
-        perfusion_box.columnconfigure(1, weight=1)
-        ttk.Label(perfusion_box, text="Title").grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Entry(perfusion_box, textvariable=self.perfusion_title_var, width=26).grid(
-            row=0,
+        epoch_box = ttk.LabelFrame(frame, text="Epoch display titles", padding=10)
+        epoch_box.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(8, 4))
+        epoch_box.columnconfigure(1, weight=1)
+        epoch_box.columnconfigure(3, weight=1)
+        for index, (key, label, _default) in enumerate(EPOCH_TITLE_FIELDS):
+            field_row = index // 2
+            field_col = (index % 2) * 2
+            ttk.Label(epoch_box, text=label).grid(row=field_row, column=field_col, sticky="w", pady=4)
+            ttk.Entry(epoch_box, textvariable=self.epoch_title_vars[key], width=26).grid(
+                row=field_row,
+                column=field_col + 1,
+                sticky="ew",
+                padx=(8, 20 if field_col == 0 else 0),
+                pady=4,
+            )
+
+        perfusion_row = (len(EPOCH_TITLE_FIELDS) + 1) // 2
+        ttk.Label(epoch_box, text="Perfusion substance").grid(row=perfusion_row, column=0, sticky="w", pady=(10, 4))
+        ttk.Entry(epoch_box, textvariable=self.perfusion_substance_var, width=18).grid(
+            row=perfusion_row,
             column=1,
             sticky="w",
             padx=(8, 20),
-            pady=4,
+            pady=(10, 4),
         )
-        ttk.Label(perfusion_box, text="Substance").grid(row=0, column=2, sticky="w", pady=4)
-        ttk.Entry(perfusion_box, textvariable=self.perfusion_substance_var, width=18).grid(
-            row=0,
-            column=3,
+        ttk.Label(epoch_box, text="Perfusion legend concentration").grid(
+            row=perfusion_row,
+            column=2,
             sticky="w",
-            padx=(8, 20),
-            pady=4,
+            pady=(10, 4),
         )
-        ttk.Label(perfusion_box, text="Legend concentration").grid(row=0, column=4, sticky="w", pady=4)
         ttk.Combobox(
-            perfusion_box,
+            epoch_box,
             textvariable=self.perfusion_concentration_var,
             values=PERFUSION_CONCENTRATIONS,
             width=10,
-        ).grid(row=0, column=5, sticky="w", padx=(8, 0), pady=4)
+        ).grid(row=perfusion_row, column=3, sticky="w", padx=(8, 0), pady=(10, 4))
 
         row += 1
         selector = ttk.LabelFrame(frame, text="Plot and analysis tools", padding=10)
@@ -1064,10 +1094,36 @@ class LocustPipelineApp:
         concentration = self.perfusion_concentration_var.get().strip()
         return " ".join(part for part in (substance, concentration) if part).strip()
 
-    def _plot_title_for_epoch_label(self, label: object) -> str:
+    def _epoch_title_mapping(self) -> dict[str, str]:
+        titles: dict[str, str] = {}
+        for key, var in self.epoch_title_vars.items():
+            title = var.get().strip()
+            if title and title != EPOCH_TITLE_DEFAULTS.get(key, ""):
+                titles[key] = title
+        return titles
+
+    def _epoch_title_for_label(self, label: object) -> str:
+        titles = self._epoch_title_mapping()
         if contains_perfusion_label(label):
-            return self._perfusion_title()
-        return str(label)
+            return titles.get("perfusion") or self._perfusion_title()
+
+        label_text = str(label).strip()
+        label_norm = normalise_epoch_text(label_text)
+        for key, title in sorted(titles.items(), key=lambda item: len(normalise_epoch_text(item[0])), reverse=True):
+            key_norm = normalise_epoch_text(key)
+            if key_norm and (key_norm == label_norm or key_norm in label_norm):
+                return title
+
+        if any(term in label_norm for term in ("baseline", "basal", "before", "pre", "control")):
+            return titles.get("baseline") or "Baseline"
+        if any(term in label_norm for term in ("post", "after", "recovery", "washout")):
+            return titles.get("post") or label_text
+        if any(term in label_norm for term in ("during", "stim", "stimulation", "current")):
+            return titles.get("stimulation") or label_text
+        return label_text
+
+    def _plot_title_for_epoch_label(self, label: object) -> str:
+        return self._epoch_title_for_label(label)
 
     def _run_bundled_script(self, script_path: str, args: list[str], failure_label: str) -> None:
         script = Path(script_path)
@@ -1499,6 +1555,9 @@ class LocustPipelineApp:
             cmd.extend(["--perfusion-title", perfusion_title])
         if perfusion_label:
             cmd.extend(["--perfusion-label", perfusion_label])
+        epoch_titles = self._epoch_title_mapping()
+        if epoch_titles:
+            cmd.extend(["--epoch-titles", json.dumps(epoch_titles)])
         return cmd, out_dir or str(Path(input_path).with_name(f"{Path(input_path).stem}_baseline_post_plots"))
 
     def _perform_baseline_post_plot(
@@ -1569,6 +1628,9 @@ class LocustPipelineApp:
             cmd.extend(["--perfusion-title", perfusion_title])
         if perfusion_label:
             cmd.extend(["--perfusion-label", perfusion_label])
+        epoch_titles = self._epoch_title_mapping()
+        if epoch_titles:
+            cmd.extend(["--epoch-titles", json.dumps(epoch_titles)])
         out_dir = self.plot_out_dir_var.get().strip()
         if out_dir:
             cmd.extend(["--out-dir", out_dir])

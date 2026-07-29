@@ -225,7 +225,7 @@ def split_option_list(value: object, default: tuple[str, ...]) -> list[str]:
 
 
 def parse_title_mapping(value: object = None) -> dict[str, str]:
-    """Parse per-plot title mappings from JSON or key=value text."""
+    """Parse title mappings from JSON or key=value text."""
     if value is None:
         return {}
     if isinstance(value, dict):
@@ -250,7 +250,7 @@ def parse_title_mapping(value: object = None) -> dict[str, str]:
         if not item:
             continue
         if "=" not in item:
-            raise ValueError("Percent plot titles must be JSON or semicolon-separated key=title entries.")
+            raise ValueError("Title mappings must be JSON or semicolon-separated key=title entries.")
         key, title = item.split("=", 1)
         key = key.strip()
         title = title.strip()
@@ -661,11 +661,42 @@ def is_perfusion_label(value: object) -> bool:
     return "perfusion" in normalise_name(value)
 
 
-def display_stimulation_label(value: object, perfusion_label: str | None = None) -> str:
+def title_for_epoch_label(
+    value: object,
+    epoch_titles: dict[str, str] | None = None,
+    fallback: str | None = None,
+) -> str:
+    fallback_text = str(value if fallback is None else fallback).strip()
+    if not epoch_titles:
+        return fallback_text
+
+    label_norm = normalise_name(value).replace("_", "")
+    for key, title in sorted(epoch_titles.items(), key=lambda item: len(normalise_name(item[0]).replace("_", "")), reverse=True):
+        key_norm = normalise_name(key).replace("_", "")
+        if key_norm and (key_norm == label_norm or key_norm in label_norm):
+            return title.strip()
+
+    phase = classify_epoch_label(value)
+    phase_keys = {
+        BASELINE_LABEL: "baseline",
+        STIMULATION_LABEL: "stimulation",
+        POST_LABEL: "post",
+    }
+    key = phase_keys.get(phase)
+    if key:
+        return epoch_titles.get(key, fallback_text)
+    return fallback_text
+
+
+def display_stimulation_label(
+    value: object,
+    perfusion_label: str | None = None,
+    epoch_titles: dict[str, str] | None = None,
+) -> str:
     label = str(value)
     if perfusion_label and is_perfusion_label(value):
         return perfusion_label.strip()
-    return label
+    return title_for_epoch_label(value, epoch_titles, label)
 
 
 def validate_and_prepare_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -1989,6 +2020,7 @@ def plot_baseline_split_percent_change(
     baseline_change: pd.DataFrame,
     group_column: str | None,
     out_dir: Path,
+    epoch_titles: dict[str, str] | None = None,
 ) -> None:
     """Plot Baseline first-half vs second-half percent change on its own."""
     if baseline_change is None or baseline_change.empty or "percent_change" not in baseline_change.columns:
@@ -2003,6 +2035,7 @@ def plot_baseline_split_percent_change(
     groups = ["All units"]
     if group_column and group_column in plot_data.columns:
         groups = sorted(plot_data[group_column].dropna().astype(str).unique())
+    baseline_display_label = title_for_epoch_label(BASELINE_LABEL, epoch_titles, BASELINE_LABEL)
 
     n_groups = len(groups)
     fig_width = max(3.4 * n_groups, 3.8)
@@ -2049,15 +2082,15 @@ def plot_baseline_split_percent_change(
         add_sig_label(ax, -0.18, 0.18, y_max + 0.08 * y_span, p_to_stars(p_value), 0.04 * y_span)
 
         ax.set_xticks([0])
-        ax.set_xticklabels([BASELINE_LABEL])
+        ax.set_xticklabels([baseline_display_label])
         ax.set_xlim(-0.55, 0.55)
         ax.set_ylim(*percent_axis_limits(y_min, y_max, top_pad=0.24))
-        ax.set_ylabel("Firing change from Baseline (%)")
+        ax.set_ylabel(f"Firing change from {baseline_display_label} (%)")
         ax.set_title("" if group == "All units" and group_column is None else str(group))
         despine(ax)
         use_zero_x_axis(ax)
 
-    fig.suptitle("Baseline first half vs second half", y=1.02, fontsize=13)
+    fig.suptitle(f"{baseline_display_label} first half vs second half", y=1.02, fontsize=13)
     fig.tight_layout()
     save_figure(fig, out_dir / "percent_change", "percent_change_baseline_first_half_vs_second_half")
 
@@ -2110,8 +2143,9 @@ def title_for_part_plot(
     part_label: object,
     part_titles: dict[str, str] | None = None,
     perfusion_title: str | None = None,
+    epoch_titles: dict[str, str] | None = None,
 ) -> str:
-    default_title = str(stimulation_label)
+    default_title = title_for_epoch_label(stimulation_label, epoch_titles, str(stimulation_label))
     if perfusion_title and is_perfusion_label(stimulation_label):
         default_title = perfusion_title.strip()
     if not part_titles:
@@ -2136,6 +2170,7 @@ def plot_part_spike_frequency(
     comparisons: tuple[str, ...] | None = None,
     perfusion_title: str | None = None,
     perfusion_label: str | None = None,
+    epoch_titles: dict[str, str] | None = None,
 ) -> None:
     """Plot absolute spike frequency for Baseline and selected recorded phases."""
     if part_table.empty:
@@ -2150,11 +2185,12 @@ def plot_part_spike_frequency(
         dropna=False,
         sort=True,
     ):
-        stimulation_display_label = display_stimulation_label(stimulation_label, perfusion_label)
+        baseline_display_label = title_for_epoch_label(BASELINE_LABEL, epoch_titles, BASELINE_LABEL)
+        stimulation_display_label = display_stimulation_label(stimulation_label, perfusion_label, epoch_titles)
         value_specs = [
             {
                 "phase": BASELINE_LABEL,
-                "label": BASELINE_LABEL,
+                "label": baseline_display_label,
                 "value_col": "baseline_hz",
                 "error_col": "baseline_window_error_hz",
             }
@@ -2172,6 +2208,8 @@ def plot_part_spike_frequency(
             post_label = POST_LABEL
             if "stimulation_hz" in part.columns and not part["stimulation_hz"].notna().any():
                 post_label = stimulation_display_label
+            else:
+                post_label = title_for_epoch_label(POST_LABEL, epoch_titles, POST_LABEL)
             value_specs.append(
                 {
                     "phase": POST_LABEL,
@@ -2284,6 +2322,7 @@ def plot_part_spike_frequency(
                 stimulation_label,
                 part_label,
                 perfusion_title=perfusion_title,
+                epoch_titles=epoch_titles,
             ),
             y=1.02,
             fontsize=13,
@@ -2306,6 +2345,7 @@ def plot_part_percent_change(
     part_titles: dict[str, str] | None = None,
     perfusion_title: str | None = None,
     perfusion_label: str | None = None,
+    epoch_titles: dict[str, str] | None = None,
 ) -> None:
     """Plot selected percent-change comparisons for each experiment part."""
     percent_dir = out_dir / "percent_change_by_part"
@@ -2322,6 +2362,7 @@ def plot_part_percent_change(
             title=pooled_title,
             perfusion_title=perfusion_title,
             perfusion_label=perfusion_label,
+            epoch_titles=epoch_titles,
         )
         return
 
@@ -2336,13 +2377,14 @@ def plot_part_percent_change(
         dropna=False,
         sort=True,
     ):
-        stimulation_display_label = display_stimulation_label(stimulation_label, perfusion_label)
+        baseline_display_label = title_for_epoch_label(BASELINE_LABEL, epoch_titles, BASELINE_LABEL)
+        stimulation_display_label = display_stimulation_label(stimulation_label, perfusion_label, epoch_titles)
         value_specs: list[dict[str, str]] = []
         if COMPARISON_BASELINE in comparison_set and part["baseline_percent_change"].notna().any():
             value_specs.append(
                 {
                     "phase": BASELINE_LABEL,
-                    "label": BASELINE_LABEL,
+                    "label": baseline_display_label,
                     "value_col": "baseline_percent_change",
                     "error_col": "baseline_percent_change_error",
                     "color": "white",
@@ -2362,6 +2404,8 @@ def plot_part_percent_change(
             post_label = POST_LABEL
             if "stimulation_hz" in part.columns and not part["stimulation_hz"].notna().any():
                 post_label = stimulation_display_label
+            else:
+                post_label = title_for_epoch_label(POST_LABEL, epoch_titles, POST_LABEL)
             value_specs.append(
                 {
                     "phase": POST_LABEL,
@@ -2462,7 +2506,7 @@ def plot_part_percent_change(
             ax.set_xticklabels(xticklabels)
             ax.set_xlim(-0.45, len(value_specs) - 0.55)
             ax.set_ylim(*percent_axis_limits(y_min, y_max, top_pad=0.36))
-            ax.set_ylabel("Firing change from Baseline (%)")
+            ax.set_ylabel(f"Firing change from {baseline_display_label} (%)")
             ax.set_title("" if group == "All units" and group_column is None else str(group))
             despine(ax)
             use_zero_x_axis(ax)
@@ -2474,6 +2518,7 @@ def plot_part_percent_change(
                 part_label,
                 part_titles,
                 perfusion_title=perfusion_title,
+                epoch_titles=epoch_titles,
             ),
             y=1.02,
             fontsize=13,
@@ -2492,6 +2537,7 @@ def plot_pooled_part_percent_change(
     title: str | None = None,
     perfusion_title: str | None = None,
     perfusion_label: str | None = None,
+    epoch_titles: dict[str, str] | None = None,
 ) -> None:
     """Plot all selected percent-change categories in one figure without merging labels."""
     comparison_set = set(comparisons or DEFAULT_COMPARISONS)
@@ -2546,6 +2592,7 @@ def plot_pooled_part_percent_change(
     significance_by_group_key: dict[tuple[str, str], str] = {}
     fallback_error_by_group_key: dict[tuple[str, str], float] = {}
     perfusion_seen = False
+    baseline_display_label = title_for_epoch_label(BASELINE_LABEL, epoch_titles, BASELINE_LABEL)
 
     def add_category(key: str, label: str, color: str) -> None:
         if key in {str(spec["key"]) for spec in category_specs}:
@@ -2580,7 +2627,7 @@ def plot_pooled_part_percent_change(
     if COMPARISON_BASELINE in comparison_set and baseline_change is not None and not baseline_change.empty:
         baseline_values = baseline_change[baseline_change["percent_change"].notna()].copy()
         if not baseline_values.empty:
-            add_category("baseline", BASELINE_LABEL, "white")
+            add_category("baseline", baseline_display_label, "white")
             for _, row in baseline_values.iterrows():
                 pooled_rows.append(
                     {
@@ -2658,6 +2705,14 @@ def plot_pooled_part_percent_change(
             phase_rows.loc[numbered_part, "_pooled_label"] = (
                 "Post " + phase_rows.loc[numbered_part, "part_index"].astype(int).astype(str)
             )
+        phase_rows["_pooled_label"] = phase_rows.apply(
+            lambda row: (
+                row["_pooled_label"]
+                if perfusion_label and phase == STIMULATION_LABEL and is_perfusion_label(row[label_col])
+                else title_for_epoch_label(row["_pooled_label"], epoch_titles, str(row["_pooled_label"]))
+            ),
+            axis=1,
+        )
 
         label_order = (
             phase_rows.sort_values("_row_order", kind="stable")["_pooled_label"]
@@ -2873,7 +2928,7 @@ def plot_pooled_part_percent_change(
                 label.set_ha("right")
         ax.set_xlim(-0.45, len(category_specs) - 0.55)
         ax.set_ylim(*percent_axis_limits(y_min, y_max, top_pad=top_pad))
-        ax.set_ylabel("Firing change from Baseline (%)")
+        ax.set_ylabel(f"Firing change from {baseline_display_label} (%)")
         ax.set_title("" if group == "All units" and group_column is None else str(group))
         despine(ax)
         use_zero_x_axis(ax)
@@ -2881,7 +2936,8 @@ def plot_pooled_part_percent_change(
     plot_title = title
     if perfusion_seen and perfusion_title:
         plot_title = perfusion_title
-    fig.suptitle((plot_title or "Firing change from Baseline").strip() or "Firing change from Baseline", y=1.02, fontsize=13)
+    fallback_title = f"Firing change from {baseline_display_label}"
+    fig.suptitle((plot_title or fallback_title).strip() or fallback_title, y=1.02, fontsize=13)
     fig.tight_layout()
     save_figure(fig, percent_dir, "percent_change_pooled_by_phase")
 
@@ -2891,6 +2947,7 @@ def plot_time_course(
     id_columns: tuple[str, ...],
     group_column: str | None,
     out_dir: Path,
+    epoch_titles: dict[str, str] | None = None,
 ) -> None:
     if not MAKE_TIME_COURSE:
         return
@@ -2937,7 +2994,7 @@ def plot_time_course(
                 marker="o",
                 markersize=3.4,
                 lw=1.2,
-                label=condition,
+                label=title_for_epoch_label(condition, epoch_titles, str(condition)),
             )
 
         boundaries = (
@@ -3080,6 +3137,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--perfusion-title", default="", help="Plot title to use for parts whose epoch label contains Perfusion.")
     parser.add_argument("--perfusion-label", default="", help="Plot label to use for parts whose epoch label contains Perfusion.")
+    parser.add_argument(
+        "--epoch-titles",
+        default="",
+        help=(
+            "Custom epoch display titles as JSON or semicolon key=title entries, "
+            "e.g. {\"baseline\":\"Control\",\"post 1\":\"Recovery 1\"}."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -3095,6 +3160,9 @@ def main() -> None:
     if BASELINE_LABEL not in recorded_phases:
         raise ValueError("Baseline must be included because all comparisons use it as the reference.")
     percent_part_titles = parse_title_mapping(args.percent_part_titles)
+    epoch_titles = parse_title_mapping(args.epoch_titles)
+    if args.perfusion_title.strip() and not any(normalise_name(key).replace("_", "") == "perfusion" for key in epoch_titles):
+        epoch_titles["perfusion"] = args.perfusion_title.strip()
 
     input_path = find_input_file(
         args.input,
@@ -3194,7 +3262,7 @@ def main() -> None:
         )
 
     if COMPARISON_BASELINE in comparison_names:
-        plot_baseline_split_percent_change(baseline_change, summary_group_column, out_dir)
+        plot_baseline_split_percent_change(baseline_change, summary_group_column, out_dir, epoch_titles=epoch_titles)
     if any(name in comparison_names for name in (COMPARISON_STIMULATION, COMPARISON_POST)):
         plot_part_spike_frequency(
             part_table,
@@ -3204,6 +3272,7 @@ def main() -> None:
             comparison_names,
             perfusion_title=args.perfusion_title.strip(),
             perfusion_label=args.perfusion_label.strip(),
+            epoch_titles=epoch_titles,
         )
     plot_part_percent_change(
         part_table,
@@ -3219,8 +3288,9 @@ def main() -> None:
         part_titles=percent_part_titles,
         perfusion_title=args.perfusion_title.strip(),
         perfusion_label=args.perfusion_label.strip(),
+        epoch_titles=epoch_titles,
     )
-    plot_time_course(df, id_columns, group_column, out_dir)
+    plot_time_course(df, id_columns, group_column, out_dir, epoch_titles=epoch_titles)
     write_outputs(df, unit_means, part_table, baseline_change, channel_percent_changes, summary, unpaired, out_dir)
 
     print("\nDone.")
