@@ -102,11 +102,17 @@ def build_epoch_color_map(epoch_series: pd.Series) -> dict:
     }
 
 
-def clean_epoch_name(name: str) -> str:
+def is_perfusion_epoch(name: object) -> bool:
+    return "perfusion" in str(name).strip().lower()
+
+
+def clean_epoch_name(name: str, perfusion_label: str = "") -> str:
     """Convert verbose epoch names into cleaner plot labels."""
     s = str(name).strip()
     low = s.lower()
 
+    if "perfusion" in low:
+        return perfusion_label.strip() or "Perfusion"
     if "baseline" in low:
         return "Baseline"
     if "h2o2" in low:
@@ -333,6 +339,8 @@ def parse_args(argv=None):
     parser.add_argument("--fig-height", type=float, default=FIG_HEIGHT, help="Figure height in inches.")
     parser.add_argument("--dpi", type=int, default=FIG_DPI, help="PNG output resolution.")
     parser.add_argument("--max-x-ticks", type=int, default=MAX_X_TICKS, help="Maximum approximate number of x-axis tick labels.")
+    parser.add_argument("--perfusion-title", default="", help="Plot title to use when any epoch label contains Perfusion.")
+    parser.add_argument("--perfusion-label", default="", help="Legend label to use for epochs whose label contains Perfusion.")
     parser.add_argument(
         "--plot-bin-sec",
         type=float,
@@ -360,6 +368,8 @@ def main():
     base_dir = os.path.dirname(csv_path) if args.input else args.csv_dir
     out_dir = args.out_dir.strip() if args.out_dir else os.path.join(base_dir, OUT_DIR_NAME)
     default_plot_title = args.title
+    perfusion_title = args.perfusion_title.strip()
+    perfusion_label = args.perfusion_label.strip()
     boundary_description = args.boundary_description.strip()
     y_lim_top = args.y_lim_top
     trace_marker = None if str(args.trace_marker).strip().lower() in {"", "none", "no", "off"} else args.trace_marker
@@ -415,7 +425,10 @@ def main():
     df["data_set_index"] = df["data_set_index"].astype(int)
     df["recording_index"] = df["recording_index"].astype(int)
     df["window_index"] = df["window_index"].astype(int)
-    df["epoch_label_clean"] = df["epoch_label"].apply(clean_epoch_name)
+    has_perfusion_epoch = df["epoch_label"].map(is_perfusion_epoch).any()
+    if has_perfusion_epoch and perfusion_title:
+        default_plot_title = perfusion_title
+    df["epoch_label_clean"] = df["epoch_label"].apply(lambda value: clean_epoch_name(value, perfusion_label))
 
    # after:
     # df["epoch_label_clean"] = df["epoch_label"].apply(clean_epoch_name)

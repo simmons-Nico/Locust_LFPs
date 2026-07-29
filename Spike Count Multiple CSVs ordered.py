@@ -83,6 +83,43 @@ TRACE_MARKER = "o"
 TRACE_LINEWIDTH = 2.0
 TRACE_COLOR = "tab:blue"
 
+POLARITY_ALIASES = {
+    "all": "both",
+    "all spikes": "both",
+    "both": "both",
+    "both polarities": "both",
+    "neg": "neg",
+    "negative": "neg",
+    "negative only": "neg",
+    "negative spikes": "neg",
+    "negative spikes only": "neg",
+    "pos": "pos",
+    "positive": "pos",
+    "positive only": "pos",
+    "positive spikes": "pos",
+    "positive spikes only": "pos",
+}
+
+POLARITY_LABELS = {
+    "both": "all spikes",
+    "neg": "negative spikes only",
+    "pos": "positive spikes only",
+}
+
+
+def normalize_polarity(value: str | None) -> str:
+    raw = POLARITY if value is None else str(value)
+    key = " ".join(raw.strip().lower().replace("_", " ").replace("-", " ").split())
+    polarity = POLARITY_ALIASES.get(key)
+    if polarity is None:
+        allowed = ", ".join(sorted({"both", "neg", "pos", "all", "negative", "positive"}))
+        raise ValueError(f"Spike polarity must be one of: {allowed}. Got {value!r}.")
+    return polarity
+
+
+def polarity_label(value: str | None) -> str:
+    return POLARITY_LABELS[normalize_polarity(value)]
+
 
 def format_window_label(window_sec: float) -> str:
     if window_sec < 60:
@@ -178,6 +215,7 @@ def estimate_fs_from_time(t: np.ndarray) -> float:
 
 def width_gate_indices(x_hp: np.ndarray, peaks: np.ndarray, fs: float,
                        wmin_ms=None, wmax_ms=None, polarity="neg"):
+    polarity = normalize_polarity(polarity)
     if peaks.size == 0:
         return peaks
     if wmin_ms is None and wmax_ms is None:
@@ -224,6 +262,7 @@ def width_gate_indices(x_hp: np.ndarray, peaks: np.ndarray, fs: float,
 
 
 def find_peaks_distance(z: np.ndarray, polarity: str, thr: float, distance: int) -> np.ndarray:
+    polarity = normalize_polarity(polarity)
     peaks_all = []
 
     if polarity in ("pos", "both"):
@@ -242,7 +281,8 @@ def find_peaks_distance(z: np.ndarray, polarity: str, thr: float, distance: int)
     return peaks
 
 
-def detect_spikes(x_uv: np.ndarray, t_s: np.ndarray):
+def detect_spikes(x_uv: np.ndarray, t_s: np.ndarray, polarity: str | None = None):
+    selected_polarity = normalize_polarity(polarity)
     fs = estimate_fs_from_time(t_s)
     x_hp = bandpass_filt(x_uv.astype(float), fs, HP_SPIKE_BAND, order=3)
     z, _, _ = robust_z(x_hp)
@@ -251,9 +291,9 @@ def detect_spikes(x_uv: np.ndarray, t_s: np.ndarray):
     refractory = int(round((REFRACTORY_MS / 1000.0) * fs))
     refractory = max(refractory, 1)
 
-    peaks = find_peaks_distance(z, polarity=POLARITY, thr=thr, distance=refractory)
+    peaks = find_peaks_distance(z, polarity=selected_polarity, thr=thr, distance=refractory)
     peaks = apply_refractory(peaks, refractory)
-    peaks = width_gate_indices(x_hp, peaks, fs, W_MIN_MS, W_MAX_MS, polarity=POLARITY)
+    peaks = width_gate_indices(x_hp, peaks, fs, W_MIN_MS, W_MAX_MS, polarity=selected_polarity)
 
     if AMP_MIN_UV is not None or AMP_MAX_UV is not None:
         amps = np.abs(x_hp[peaks]) if peaks.size else np.array([])
@@ -357,12 +397,13 @@ def _epoch_label_for_path(csv_path, lookup):
     )
 
 
-def process_csvs(csv_paths, out_dir=None, epoch_labels_by_path=None, window_sec=None):
+def process_csvs(csv_paths, out_dir=None, epoch_labels_by_path=None, window_sec=None, polarity=None):
     """Process an ordered list of raw CSV files and return the combined output CSV path."""
     ordered_csv_paths = list(csv_paths)
     if not ordered_csv_paths:
         raise FileNotFoundError("No CSV files were provided for spike counting.")
 
+    selected_polarity = normalize_polarity(polarity)
     selected_window_sec = float(window_sec if window_sec is not None else WINDOW_SEC)
     if selected_window_sec <= 0:
         raise ValueError("Spike-count window size must be greater than zero.")
@@ -376,6 +417,8 @@ def process_csvs(csv_paths, out_dir=None, epoch_labels_by_path=None, window_sec=
     epoch_lookup = _normalise_label_lookup(epoch_labels_by_path)
     results_rows = []
     plot_payload = {}
+
+    print(f"[settings] spike polarity: {polarity_label(selected_polarity)} ({selected_polarity})")
 
     for rec_idx, csv_path in enumerate(ordered_csv_paths, start=1):
         rec_name = os.path.splitext(os.path.basename(csv_path))[0]
@@ -407,7 +450,7 @@ def process_csvs(csv_paths, out_dir=None, epoch_labels_by_path=None, window_sec=
                 s = pd.Series(x)
                 x = s.interpolate(limit_direction="both").to_numpy(dtype=float)
 
-            peaks, spike_times, fs = detect_spikes(x, t)
+            peaks, spike_times, fs = detect_spikes(x, t, polarity=selected_polarity)
             print(f"[{rec_name} | {ch}] detected spikes: {len(spike_times)} (fs≈{fs:.2f} Hz)")
 
             t0 = float(t[0])
@@ -434,7 +477,7 @@ def process_csvs(csv_paths, out_dir=None, epoch_labels_by_path=None, window_sec=
                     "spike_count": cnt,
                     "fs_est_hz": float(fs),
                     "z_thr": float(SPIKE_Z_THR),
-                    "polarity": POLARITY,
+                    "polarity": selected_polarity,
                     "refractory_ms": float(REFRACTORY_MS),
                     "hp_lo_hz": float(HP_SPIKE_BAND[0]),
                     "hp_hi_hz": float(HP_SPIKE_BAND[1]),
@@ -558,7 +601,22 @@ def process_csvs(csv_paths, out_dir=None, epoch_labels_by_path=None, window_sec=
     return out_csv
 
 
-def main():
+def build_arg_parser():
+    parser = argparse.ArgumentParser(
+        description="Count spikes across multiple CSV recordings and make continuous per-channel plots."
+    )
+    parser.add_argument(
+        "--polarity",
+        default=POLARITY,
+        help="Spike polarity to count: both/all, neg/negative, or pos/positive.",
+    )
+    return parser
+
+
+def main(argv=None):
+    args = build_arg_parser().parse_args(argv)
+    selected_polarity = normalize_polarity(args.polarity)
+
     csv_paths = sorted(glob.glob(os.path.join(CSV_DIR, CSV_GLOB)))
     if not csv_paths:
         raise FileNotFoundError(f"No CSV files found in {CSV_DIR} matching {CSV_GLOB}")
@@ -570,6 +628,8 @@ def main():
 
     results_rows = []
     plot_payload = {}   # channel -> list of blocks in chosen order
+
+    print(f"[settings] spike polarity: {polarity_label(selected_polarity)} ({selected_polarity})")
 
     for rec_idx, csv_path in enumerate(ordered_csv_paths, start=1):
         rec_name = os.path.splitext(os.path.basename(csv_path))[0]
@@ -598,7 +658,7 @@ def main():
                 s = pd.Series(x)
                 x = s.interpolate(limit_direction="both").to_numpy(dtype=float)
 
-            peaks, spike_times, fs = detect_spikes(x, t)
+            peaks, spike_times, fs = detect_spikes(x, t, polarity=selected_polarity)
             print(f"[{rec_name} | {ch}] detected spikes: {len(spike_times)} (fs≈{fs:.2f} Hz)")
 
             t0 = float(t[0])
@@ -624,7 +684,7 @@ def main():
                     "spike_count": cnt,
                     "fs_est_hz": float(fs),
                     "z_thr": float(SPIKE_Z_THR),
-                    "polarity": POLARITY,
+                    "polarity": selected_polarity,
                     "refractory_ms": float(REFRACTORY_MS),
                     "hp_lo_hz": float(HP_SPIKE_BAND[0]),
                     "hp_hi_hz": float(HP_SPIKE_BAND[1]),

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""Tkinter GUI for the Locust LFP processing pipeline."""
+"""Tkinter GUI for Signal Processing for Insect Electrophysiology."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
@@ -21,7 +22,10 @@ import tkinter as tk
 from tkinter import ttk
 
 
-SCRIPT_DIR = Path(__file__).resolve().parent
+APP_NAME = "Signal Processing for Insect Electrophysiology (SPIE)"
+APP_SHORT_NAME = "SPIE"
+SCRIPT_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+APP_ICON = SCRIPT_DIR / "spie_icon.ico"
 PLOT_SCRIPT = SCRIPT_DIR / "plot_baseline_post_firing_rates.py"
 CSV_SPIKE_PLOT_SCRIPT = SCRIPT_DIR / "CSV_to_spike_counts.py"
 SPIKE_SCRIPT = SCRIPT_DIR / "Spike Count Multiple CSVs ordered.py"
@@ -49,9 +53,27 @@ EPOCH_ROW_COLORS = {
     "unlabeled": "#f1f5f9",
 }
 
+PERFUSION_CONCENTRATIONS = ("10mM", "1mM", "100uM")
+
+COMBINE_COLUMN_ALIASES = {
+    "recording_index": ("recording_index", "recording", "recording_number", "recording_id"),
+    "recording_name": ("recording_name", "recording", "recording_id", "file_name", "filename"),
+    "epoch_label": ("epoch_label", "epoch", "condition", "condition_label", "phase"),
+    "channel": ("channel", "chan", "electrode", "electrode_id"),
+    "window_index": ("window_index", "window", "bin", "bin_index"),
+    "window_start_s": ("window_start_s", "start_s", "window_start", "start_time_s"),
+    "window_end_s": ("window_end_s", "end_s", "window_end", "end_time_s"),
+    "window_duration_s": ("window_duration_s", "duration_s", "duration", "window_length_s"),
+    "window_label": ("window_label", "window_name", "bin_label"),
+    "spike_count": ("spike_count", "spikes", "spike_counts", "count", "n_spikes", "SpikeCount"),
+}
+
 
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
+
+if getattr(sys, "frozen", False):
+    import matplotlib.backends.backend_svg  # noqa: F401
 
 
 class QueueWriter:
@@ -113,10 +135,52 @@ def plot_bin_seconds(label: str) -> float:
     return float(raw)
 
 
+def normalise_table_name(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value).strip().lower())
+
+
+def normalise_epoch_text(value: object) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(value).strip().lower())
+
+
+def epoch_phase_order(value: object) -> int:
+    text = normalise_epoch_text(value)
+    if not text:
+        return 3
+    if any(term in text for term in ("baseline", "basal", "before", "pre", "control")):
+        return 0
+    if any(term in text for term in ("post", "after", "recovery", "washout")):
+        return 2
+    if any(term in text for term in ("during", "stim", "stimulation", "perfusion")):
+        return 1
+    return 1
+
+
+def standardise_combine_columns(df):
+    norm_to_original = {normalise_table_name(col): col for col in df.columns}
+    rename_map = {}
+    for canonical, aliases in COMBINE_COLUMN_ALIASES.items():
+        if canonical in df.columns:
+            continue
+        for alias in aliases:
+            original = norm_to_original.get(normalise_table_name(alias))
+            if original is not None:
+                rename_map[original] = canonical
+                break
+    return df.rename(columns=rename_map)
+
+
+def contains_perfusion_label(value: object) -> bool:
+    return "perfusion" in normalise_epoch_text(value)
+
+
 class LocustPipelineApp:
     def __init__(self, root: tk.Tk):
         self.root = root
-        self.root.title("Locust LFP Pipeline")
+        self.root.title(APP_NAME)
+        if APP_ICON.exists():
+            with contextlib.suppress(tk.TclError):
+                self.root.iconbitmap(str(APP_ICON))
         self.root.geometry("1180x820")
         self.root.minsize(960, 560)
         self.log_queue: queue.Queue[str] = queue.Queue()
@@ -181,7 +245,7 @@ class LocustPipelineApp:
         bar.grid(row=0, column=0, sticky="ew")
         bar.columnconfigure(1, weight=1)
 
-        title = ttk.Label(bar, text="Locust LFP Pipeline", font=("Segoe UI", 16, "bold"))
+        title = ttk.Label(bar, text=APP_NAME, font=("Segoe UI", 16, "bold"))
         title.grid(row=0, column=0, sticky="w")
         ttk.Label(bar, textvariable=self.stage_var, style="Hint.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 0))
 
@@ -307,12 +371,13 @@ class LocustPipelineApp:
     def _build_spike_tab(self) -> None:
         frame = self.spike_tab
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(5, weight=1)
+        frame.rowconfigure(7, weight=1)
         self._tab_header(frame, 0, "2", "Spike counts", STEP_COLORS["spike"])
 
         self.spike_csv_dir_var = tk.StringVar(value=str(DEFAULT_DATA_DIR))
         self.spike_glob_var = tk.StringVar(value="*.csv")
         self.spike_window_var = tk.StringVar(value="1 min")
+        self.spike_polarity_var = tk.StringVar(value="both")
         self.spike_out_dir_var = tk.StringVar(
             value=str(DEFAULT_DATA_DIR / "spike_counts_per_min")
         )
@@ -342,6 +407,29 @@ class LocustPipelineApp:
         )
 
         row += 1
+        ttk.Label(frame, text="Spike polarity").grid(row=row, column=0, sticky="w", pady=4)
+        polarity_controls = ttk.Frame(frame)
+        polarity_controls.grid(row=row, column=1, columnspan=2, sticky="w", pady=4)
+        ttk.Radiobutton(
+            polarity_controls,
+            text="All spikes",
+            variable=self.spike_polarity_var,
+            value="both",
+        ).pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(
+            polarity_controls,
+            text="Negative only",
+            variable=self.spike_polarity_var,
+            value="neg",
+        ).pack(side="left", padx=(0, 14))
+        ttk.Radiobutton(
+            polarity_controls,
+            text="Positive only",
+            variable=self.spike_polarity_var,
+            value="pos",
+        ).pack(side="left")
+
+        row += 1
         self._path_row(frame, row, "Spike output folder", self.spike_out_dir_var, self._browse_spike_out_dir)
 
         row += 1
@@ -353,17 +441,17 @@ class LocustPipelineApp:
         ttk.Combobox(
             controls,
             textvariable=self.selected_epoch_var,
-            values=("Baseline", "Stimulation", "Post 1", "Post 2", "Post 3", "Post"),
+            values=("Baseline", "During", "Stimulation", "Perfusion", "Post 1", "Post 2", "Post 3", "Post"),
             width=20,
         ).pack(side="left")
-        ttk.Button(controls, text="Apply Label", style="Secondary.TButton", command=self.apply_epoch_label).pack(side="left", padx=6)
+        ttk.Button(controls, text="Apply Label to Selection", style="Secondary.TButton", command=self.apply_epoch_label).pack(side="left", padx=6)
 
         row += 1
         list_frame = ttk.Frame(frame)
         list_frame.grid(row=row, column=0, columnspan=3, sticky="nsew")
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
-        self.recording_listbox = tk.Listbox(list_frame, height=15, exportselection=False)
+        self.recording_listbox = tk.Listbox(list_frame, height=15, exportselection=False, selectmode="extended")
         self.recording_listbox.bind("<<ListboxSelect>>", self.on_recording_select)
         rec_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.recording_listbox.yview)
         self.recording_listbox.configure(yscrollcommand=rec_scroll.set)
@@ -371,9 +459,15 @@ class LocustPipelineApp:
         rec_scroll.grid(row=0, column=1, sticky="ns")
 
         row += 1
-        ttk.Button(frame, text="Run Spike Counting", style="Spike.TButton", command=self.run_spike_counting).grid(
-            row=row, column=1, sticky="w", pady=12
-        )
+        run_controls = ttk.Frame(frame)
+        run_controls.grid(row=row, column=1, sticky="w", pady=12)
+        ttk.Button(run_controls, text="Run Spike Counting", style="Spike.TButton", command=self.run_spike_counting).pack(side="left")
+        ttk.Button(
+            run_controls,
+            text="Combine Files",
+            style="Secondary.TButton",
+            command=self.run_combine_spike_count_files,
+        ).pack(side="left", padx=(8, 0))
 
     def _build_plot_tab(self) -> None:
         outer = self.plot_tab
@@ -405,7 +499,7 @@ class LocustPipelineApp:
         self.plot_tab_canvas.bind("<Configure>", self._on_plot_tab_canvas_configure)
 
         frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(4, weight=1, minsize=320)
+        frame.rowconfigure(5, weight=1, minsize=320)
         self._tab_header(frame, 0, "3", "Plots", STEP_COLORS["plot"])
 
         self.plot_input_var = tk.StringVar(value="")
@@ -424,6 +518,9 @@ class LocustPipelineApp:
         self.continuous_dpi_var = tk.StringVar(value="200")
         self.continuous_max_x_ticks_var = tk.StringVar(value="24")
         self.continuous_plot_bin_var = tk.StringVar(value="1 min")
+        self.perfusion_title_var = tk.StringVar(value="Perfusion")
+        self.perfusion_substance_var = tk.StringVar(value="")
+        self.perfusion_concentration_var = tk.StringVar(value="1mM")
 
         self.phase_baseline_var = tk.BooleanVar(value=True)
         self.phase_stim_var = tk.BooleanVar(value=True)
@@ -432,7 +529,7 @@ class LocustPipelineApp:
         self.comp_stim_var = tk.BooleanVar(value=True)
         self.comp_post_var = tk.BooleanVar(value=True)
         self.pool_percent_change_var = tk.BooleanVar(value=False)
-        self.pooled_percent_title_var = tk.StringVar(value="Firing change from Baseline")
+        self.pooled_percent_title_var = tk.StringVar(value="Percentage Change from Baseline")
         self.percent_part_titles: dict[str, str] = {}
         self.percent_part_titles_summary_var = tk.StringVar(value="Default non-pooled titles")
 
@@ -440,6 +537,34 @@ class LocustPipelineApp:
         self._path_row(frame, row, "Spike-count file", self.plot_input_var, self._browse_plot_input)
         row += 1
         self._path_row(frame, row, "Plot output folder", self.plot_out_dir_var, self._browse_plot_out_dir)
+
+        row += 1
+        perfusion_box = ttk.LabelFrame(frame, text="Perfusion epoch details", padding=10)
+        perfusion_box.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(8, 4))
+        perfusion_box.columnconfigure(1, weight=1)
+        ttk.Label(perfusion_box, text="Title").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Entry(perfusion_box, textvariable=self.perfusion_title_var, width=26).grid(
+            row=0,
+            column=1,
+            sticky="w",
+            padx=(8, 20),
+            pady=4,
+        )
+        ttk.Label(perfusion_box, text="Substance").grid(row=0, column=2, sticky="w", pady=4)
+        ttk.Entry(perfusion_box, textvariable=self.perfusion_substance_var, width=18).grid(
+            row=0,
+            column=3,
+            sticky="w",
+            padx=(8, 20),
+            pady=4,
+        )
+        ttk.Label(perfusion_box, text="Legend concentration").grid(row=0, column=4, sticky="w", pady=4)
+        ttk.Combobox(
+            perfusion_box,
+            textvariable=self.perfusion_concentration_var,
+            values=PERFUSION_CONCENTRATIONS,
+            width=10,
+        ).grid(row=0, column=5, sticky="w", padx=(8, 0), pady=4)
 
         row += 1
         selector = ttk.LabelFrame(frame, text="Plot and analysis tools", padding=10)
@@ -456,7 +581,7 @@ class LocustPipelineApp:
         self._plot_tool_card(
             selector,
             key="baseline_post",
-            title="Baseline/Post firing-rate plots",
+            title="Percentage Change from Baseline",
             description="Percent change, spike frequency, time courses, and summary tables.",
             color=STEP_COLORS["plot"],
             row=1,
@@ -544,7 +669,7 @@ class LocustPipelineApp:
             )
 
         names = {
-            "baseline_post": "Baseline/Post firing-rate plots selected",
+            "baseline_post": "Percentage Change from Baseline selected",
             "continuous_spike": "Continuous spike-count plots selected",
         }
         self.stage_var.set(names.get(key, "Plot tool selected"))
@@ -585,7 +710,7 @@ class LocustPipelineApp:
         return "break"
 
     def _build_baseline_post_plot_panel(self, parent):
-        panel = ttk.LabelFrame(parent, text="Baseline/Post firing-rate plot parameters", padding=10)
+        panel = ttk.LabelFrame(parent, text="Percentage Change from Baseline parameters", padding=10)
         panel.columnconfigure(0, weight=1)
 
         row = 0
@@ -839,7 +964,7 @@ class LocustPipelineApp:
         self._refresh_recording_listbox()
         self.log(f"Found {len(self.recordings)} CSV file(s) for spike counting.\n")
 
-    def _refresh_recording_listbox(self) -> None:
+    def _refresh_recording_listbox(self, selected_indices: list[int] | None = None) -> None:
         self.recording_listbox.delete(0, "end")
         for i, item in enumerate(self.recordings, start=1):
             label = item["label"] or "unlabeled"
@@ -851,53 +976,123 @@ class LocustPipelineApp:
                 selectbackground="#1d4ed8",
                 selectforeground="white",
             )
+        if selected_indices:
+            self.recording_listbox.selection_clear(0, "end")
+            last_index = len(self.recordings) - 1
+            valid_indices = [index for index in selected_indices if 0 <= index <= last_index]
+            for index in valid_indices:
+                self.recording_listbox.selection_set(index)
+            if valid_indices:
+                self.recording_listbox.activate(valid_indices[0])
+                self.recording_listbox.see(valid_indices[0])
 
     def _epoch_row_color(self, label: str) -> str:
         key = label.strip().lower()
         if "baseline" in key:
             return EPOCH_ROW_COLORS["baseline"]
-        if "stim" in key or "current" in key:
+        if "stim" in key or "current" in key or "during" in key or "perfusion" in key:
             return EPOCH_ROW_COLORS["stimulation"]
         if "post" in key or "after" in key or "recovery" in key:
             return EPOCH_ROW_COLORS["post"]
         return EPOCH_ROW_COLORS["unlabeled"]
 
-    def _selected_recording_index(self) -> int | None:
+    def _selected_recording_indices(self) -> list[int]:
         selection = self.recording_listbox.curselection()
         if not selection:
+            return []
+        return sorted(int(index) for index in selection)
+
+    def _selected_recording_index(self) -> int | None:
+        indices = self._selected_recording_indices()
+        if not indices:
             return None
-        return int(selection[0])
+        return indices[0]
 
     def on_recording_select(self, _event=None) -> None:
-        index = self._selected_recording_index()
-        if index is None:
+        indices = self._selected_recording_indices()
+        if not indices:
             return
-        self.selected_epoch_var.set(self.recordings[index]["label"] or "")
+        labels = [self.recordings[index]["label"].strip() for index in indices]
+        first_label = labels[0]
+        self.selected_epoch_var.set(first_label if all(label == first_label for label in labels) else "")
 
     def apply_epoch_label(self) -> None:
-        index = self._selected_recording_index()
-        if index is None:
+        indices = self._selected_recording_indices()
+        if not indices:
             return
-        self.recordings[index]["label"] = self.selected_epoch_var.get().strip()
-        self._refresh_recording_listbox()
-        self.recording_listbox.selection_set(index)
+        for index in indices:
+            self.recordings[index]["label"] = self.selected_epoch_var.get().strip()
+        self._refresh_recording_listbox(indices)
 
     def move_recording(self, delta: int) -> None:
-        index = self._selected_recording_index()
-        if index is None:
+        indices = self._selected_recording_indices()
+        if not indices:
             return
-        new_index = index + delta
-        if new_index < 0 or new_index >= len(self.recordings):
+        if delta < 0 and indices[0] == 0:
             return
-        self.recordings[index], self.recordings[new_index] = self.recordings[new_index], self.recordings[index]
-        self._refresh_recording_listbox()
-        self.recording_listbox.selection_set(new_index)
+        if delta > 0 and indices[-1] == len(self.recordings) - 1:
+            return
+
+        selected = set(indices)
+        if delta < 0:
+            for index in indices:
+                if index - 1 in selected:
+                    continue
+                self.recordings[index - 1], self.recordings[index] = self.recordings[index], self.recordings[index - 1]
+                selected.remove(index)
+                selected.add(index - 1)
+        elif delta > 0:
+            for index in reversed(indices):
+                if index + 1 in selected:
+                    continue
+                self.recordings[index + 1], self.recordings[index] = self.recordings[index], self.recordings[index + 1]
+                selected.remove(index)
+                selected.add(index + 1)
+        else:
+            return
+
+        self._refresh_recording_listbox(sorted(selected))
 
     def _format_command(self, cmd: list[str]) -> str:
         return " ".join(f'"{part}"' if " " in part else part for part in cmd)
 
+    def _perfusion_title(self) -> str:
+        return self.perfusion_title_var.get().strip() or "Perfusion"
+
+    def _perfusion_legend_label(self) -> str:
+        substance = self.perfusion_substance_var.get().strip()
+        concentration = self.perfusion_concentration_var.get().strip()
+        return " ".join(part for part in (substance, concentration) if part).strip()
+
+    def _plot_title_for_epoch_label(self, label: object) -> str:
+        if contains_perfusion_label(label):
+            return self._perfusion_title()
+        return str(label)
+
+    def _run_bundled_script(self, script_path: str, args: list[str], failure_label: str) -> None:
+        script = Path(script_path)
+        module_name = "spie_" + "".join(ch if ch.isalnum() else "_" for ch in script.stem)
+        old_argv = sys.argv[:]
+        old_cwd = Path.cwd()
+        try:
+            os.chdir(SCRIPT_DIR)
+            sys.argv = [str(script), *args]
+            with contextlib.redirect_stdout(QueueWriter(self.log_queue)), contextlib.redirect_stderr(QueueWriter(self.log_queue)):
+                module = load_script_module(script, f"{module_name}_{threading.get_ident()}")
+                module.main()
+        except SystemExit as exc:
+            code = exc.code if isinstance(exc.code, int) else int(bool(exc.code))
+            if code:
+                raise RuntimeError(f"{failure_label} failed with exit code {code}.") from exc
+        finally:
+            sys.argv = old_argv
+            os.chdir(old_cwd)
+
     def _run_logged_subprocess(self, cmd: list[str], failure_label: str) -> None:
         self.log_queue.put("Running command:\n  " + self._format_command(cmd) + "\n")
+        if getattr(sys, "frozen", False) and len(cmd) >= 2:
+            self._run_bundled_script(cmd[1], cmd[2:], failure_label)
+            return
         process = subprocess.Popen(
             cmd,
             cwd=str(SCRIPT_DIR),
@@ -945,12 +1140,178 @@ class LocustPipelineApp:
             labels = {item["path"]: item["label"] for item in self.recordings if item["label"].strip()}
         if not paths:
             raise FileNotFoundError("No CSV files were found for spike counting.")
+        polarity = module.normalize_polarity(self.spike_polarity_var.get())
         return module.process_csvs(
             paths,
             out_dir=out_dir if out_dir is not None else self.spike_out_dir_var.get().strip(),
             epoch_labels_by_path=labels or {},
             window_sec=plot_bin_seconds(self.spike_window_var.get()),
+            polarity=polarity,
         )
+
+    def _combine_source_paths(self) -> list[str]:
+        if not self.recordings:
+            self.refresh_spike_files()
+        indices = self._selected_recording_indices()
+        if indices:
+            return [self.recordings[index]["path"] for index in indices]
+        return [item["path"] for item in self.recordings]
+
+    def _prepare_spike_count_frame_for_combine(self, path: str, source_order: int):
+        import numpy as np
+        import pandas as pd
+
+        csv_path = Path(path)
+        df = pd.read_csv(csv_path)
+        df = standardise_combine_columns(df)
+
+        required = ["epoch_label", "channel", "spike_count"]
+        missing = [col for col in required if col not in df.columns]
+        if missing:
+            raise ValueError(
+                f"{csv_path.name} does not look like a spike-count output CSV. "
+                f"Missing column(s): {missing}"
+            )
+
+        df = df.copy()
+        if "recording_name" not in df.columns:
+            df["recording_name"] = csv_path.stem
+        else:
+            df["recording_name"] = df["recording_name"].astype("string").fillna("").astype(str).str.strip()
+            df.loc[df["recording_name"] == "", "recording_name"] = csv_path.stem
+
+        if "recording_index" in df.columns:
+            df["source_recording_index"] = pd.to_numeric(df["recording_index"], errors="coerce")
+        else:
+            df["source_recording_index"] = source_order
+
+        if "window_index" not in df.columns:
+            df["window_index"] = (
+                df.groupby(["channel", "epoch_label"], dropna=False)
+                .cumcount()
+                .astype(int)
+            )
+
+        for col in ["window_index", "window_start_s", "window_end_s", "window_duration_s", "spike_count"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        if df["window_index"].isna().any():
+            inferred_window_index = df.groupby(["channel", "epoch_label"], dropna=False).cumcount()
+            df.loc[df["window_index"].isna(), "window_index"] = inferred_window_index[df["window_index"].isna()]
+
+        fallback_window_sec = plot_bin_seconds(self.spike_window_var.get())
+        if "window_duration_s" not in df.columns and {"window_start_s", "window_end_s"}.issubset(df.columns):
+            df["window_duration_s"] = df["window_end_s"] - df["window_start_s"]
+        if "window_duration_s" not in df.columns:
+            df["window_duration_s"] = fallback_window_sec
+        df["window_duration_s"] = df["window_duration_s"].fillna(fallback_window_sec)
+
+        if "window_start_s" not in df.columns:
+            df["window_start_s"] = df["window_index"].fillna(0).astype(float) * df["window_duration_s"].fillna(fallback_window_sec)
+        else:
+            missing_start = df["window_start_s"].isna()
+            df.loc[missing_start, "window_start_s"] = (
+                df.loc[missing_start, "window_index"].fillna(0).astype(float)
+                * df.loc[missing_start, "window_duration_s"].fillna(fallback_window_sec)
+            )
+        if "window_end_s" not in df.columns:
+            df["window_end_s"] = df["window_start_s"] + df["window_duration_s"].fillna(fallback_window_sec)
+        else:
+            missing_end = df["window_end_s"].isna()
+            df.loc[missing_end, "window_end_s"] = (
+                df.loc[missing_end, "window_start_s"].fillna(0).astype(float)
+                + df.loc[missing_end, "window_duration_s"].fillna(fallback_window_sec)
+            )
+
+        if "window_label" not in df.columns:
+            starts_min = df["window_start_s"].fillna(0).astype(float) / 60.0
+            ends_min = df["window_end_s"].fillna(0).astype(float) / 60.0
+            df["window_label"] = [
+                f"Min {start:g}-{end:g}"
+                for start, end in zip(starts_min, ends_min)
+            ]
+
+        for col in ["recording_name", "epoch_label", "channel", "window_label"]:
+            df[col] = df[col].astype("string").str.strip()
+            df[col] = df[col].replace("", pd.NA)
+
+        df = df.dropna(subset=["epoch_label", "channel", "spike_count"]).copy()
+        if df.empty:
+            raise ValueError(f"{csv_path.name} has no valid spike-count rows after cleaning.")
+
+        df["_source_file_order"] = source_order
+        df["_source_row_order"] = np.arange(len(df))
+        df["_epoch_phase_order"] = df["epoch_label"].map(epoch_phase_order)
+        df["source_file"] = csv_path.name
+        return df
+
+    def _perform_combine_spike_count_files(self, paths: list[str] | None = None, out_dir: str | None = None) -> str:
+        import pandas as pd
+
+        selected_paths = paths or self._combine_source_paths()
+        if len(selected_paths) < 2:
+            raise ValueError("Choose at least two spike-count CSV files to combine.")
+
+        frames = [
+            self._prepare_spike_count_frame_for_combine(path, source_order)
+            for source_order, path in enumerate(selected_paths, start=1)
+        ]
+        combined = pd.concat(frames, ignore_index=True, sort=False)
+
+        for col in ["source_recording_index", "window_index", "window_start_s", "window_end_s", "window_duration_s"]:
+            if col in combined.columns:
+                combined[col] = pd.to_numeric(combined[col], errors="coerce")
+
+        sort_cols = [
+            "channel",
+            "_epoch_phase_order",
+            "epoch_label",
+            "_source_file_order",
+            "source_recording_index",
+            "recording_name",
+            "window_start_s",
+            "window_index",
+            "_source_row_order",
+        ]
+        combined = combined.sort_values([col for col in sort_cols if col in combined.columns], kind="stable").reset_index(drop=True)
+
+        recording_key_cols = ["_epoch_phase_order", "epoch_label", "_source_file_order", "source_recording_index", "recording_name"]
+        recording_keys = combined[recording_key_cols].astype(str).agg("|".join, axis=1)
+        combined["recording_index"] = pd.factorize(recording_keys, sort=False)[0] + 1
+        combined["window_index"] = (
+            combined.groupby(["channel", "recording_index", "epoch_label"], dropna=False)
+            .cumcount()
+            .astype(int)
+        )
+
+        output_dir = out_dir or self.spike_out_dir_var.get().strip() or str(Path(selected_paths[0]).parent)
+        os.makedirs(output_dir, exist_ok=True)
+        out_csv = str(Path(output_dir) / "COMBINED__spike_counts_by_epoch.csv")
+
+        preferred_cols = [
+            "recording_index",
+            "recording_name",
+            "epoch_label",
+            "channel",
+            "window_index",
+            "window_start_s",
+            "window_end_s",
+            "window_duration_s",
+            "window_label",
+            "spike_count",
+            "source_file",
+            "source_recording_index",
+        ]
+        output_cols = [col for col in preferred_cols if col in combined.columns]
+        output_cols.extend(
+            col
+            for col in combined.columns
+            if col not in output_cols and not str(col).startswith("_")
+        )
+        combined[output_cols].to_csv(out_csv, index=False)
+        print(f"[combine] wrote {len(combined)} row(s) from {len(selected_paths)} file(s):\n  {out_csv}")
+        return out_csv
 
     def _detect_percent_part_plot_specs(
         self,
@@ -1004,7 +1365,7 @@ class LocustPipelineApp:
             if not has_plot_value:
                 continue
             index = int(part_index)
-            default_title = str(stimulation_label)
+            default_title = self._plot_title_for_epoch_label(stimulation_label)
             specs.append(
                 {
                     "key": f"part:{index}",
@@ -1132,6 +1493,12 @@ class LocustPipelineApp:
             cmd.extend(["--percent-part-titles", json.dumps(self.percent_part_titles)])
         if not self.plot_time_course_var.get():
             cmd.append("--no-time-course")
+        perfusion_title = self._perfusion_title()
+        perfusion_label = self._perfusion_legend_label()
+        if perfusion_title:
+            cmd.extend(["--perfusion-title", perfusion_title])
+        if perfusion_label:
+            cmd.extend(["--perfusion-label", perfusion_label])
         return cmd, out_dir or str(Path(input_path).with_name(f"{Path(input_path).stem}_baseline_post_plots"))
 
     def _perform_baseline_post_plot(
@@ -1196,6 +1563,12 @@ class LocustPipelineApp:
             "--plot-bin-sec",
             str(plot_bin_seconds(self.continuous_plot_bin_var.get())),
         ]
+        perfusion_title = self._perfusion_title()
+        perfusion_label = self._perfusion_legend_label()
+        if perfusion_title:
+            cmd.extend(["--perfusion-title", perfusion_title])
+        if perfusion_label:
+            cmd.extend(["--perfusion-label", perfusion_label])
         out_dir = self.plot_out_dir_var.get().strip()
         if out_dir:
             cmd.extend(["--out-dir", out_dir])
@@ -1236,6 +1609,25 @@ class LocustPipelineApp:
                 self.plot_out_dir_var.set(str(spike_path.with_name(f"{spike_path.stem}_baseline_post_plots")))
 
         self.run_background("Spike counting", task, on_success=success)
+
+    def run_combine_spike_count_files(self) -> None:
+        if not self.recordings:
+            self.refresh_spike_files()
+        paths = self._combine_source_paths()
+        if len(paths) < 2:
+            messagebox.showerror("Not enough files", "Choose at least two spike-count CSV files to combine.")
+            return
+
+        def task():
+            return self._perform_combine_spike_count_files(paths=paths)
+
+        def success(path):
+            self.plot_input_var.set(str(path))
+            spike_path = Path(path)
+            if not self.plot_out_dir_var.get().strip():
+                self.plot_out_dir_var.set(str(spike_path.with_name(f"{spike_path.stem}_baseline_post_plots")))
+
+        self.run_background("Combine spike-count files", task, on_success=success)
 
     def selected_recorded_phases(self) -> list[str]:
         phases = []

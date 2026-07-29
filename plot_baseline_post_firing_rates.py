@@ -109,6 +109,9 @@ CANONICAL_COLUMNS = {
     "window_duration_s": ("window_duration_s", "duration_s", "duration", "window_length_s"),
 }
 
+PHASE_LABEL_COLUMNS = {"epoch_label", "epoch", "condition", "condition_label", "phase"}
+CHANNEL_COLUMN = "channel"
+
 
 def normalise_name(value: str) -> str:
     """Lowercase a column/label and remove punctuation used only as separators."""
@@ -116,6 +119,86 @@ def normalise_name(value: str) -> str:
     value = re.sub(r"[\s\-./()]+", "_", value)
     value = re.sub(r"_+", "_", value)
     return value.strip("_")
+
+
+def unique_nonblank_strings(values: Iterable[object]) -> list[str]:
+    """Return unique nonblank values in first-seen order."""
+    seen: dict[str, None] = {}
+    for value in values:
+        if pd.isna(value):
+            continue
+        text = str(value).strip()
+        if not text or text.lower() == "nan":
+            continue
+        if text not in seen:
+            seen[text] = None
+    return list(seen)
+
+
+def combined_key_columns(
+    id_columns: Iterable[str],
+    extra_column: str | None = None,
+) -> list[str]:
+    """Combine paired-unit and optional grouping columns without duplicates."""
+    columns: list[str] = []
+    seen: set[str] = set()
+    for col in [*id_columns, extra_column]:
+        if not col:
+            continue
+        norm = normalise_name(col)
+        if norm in seen:
+            continue
+        columns.append(str(col))
+        seen.add(norm)
+    return columns
+
+
+def format_value_preview(values: list[str], max_items: int = 12) -> str:
+    if len(values) <= max_items:
+        return ", ".join(values)
+    shown = ", ".join(values[:max_items])
+    return f"{shown}, ... (+{len(values) - max_items} more)"
+
+
+def ensure_channel_id_column_for_multichannel_csv(
+    df: pd.DataFrame,
+    id_columns: tuple[str, ...],
+) -> tuple[tuple[str, ...], list[str]]:
+    """Ensure multi-channel CSVs calculate paired changes separately per channel."""
+    if CHANNEL_COLUMN not in df.columns:
+        return id_columns, []
+
+    channels = unique_nonblank_strings(df[CHANNEL_COLUMN])
+    if len(channels) < 2:
+        return id_columns, channels
+
+    id_norms = {normalise_name(col) for col in id_columns}
+    if normalise_name(CHANNEL_COLUMN) not in id_norms:
+        id_columns = (*id_columns, CHANNEL_COLUMN)
+        print(
+            f"Detected {len(channels)} channels in the '{CHANNEL_COLUMN}' column; "
+            "adding 'channel' to paired-unit ID columns so percent changes are "
+            "calculated separately per channel."
+        )
+    else:
+        print(
+            f"Detected {len(channels)} channels in the '{CHANNEL_COLUMN}' column; "
+            "percent changes will be calculated separately per channel."
+        )
+    print("Channels: " + format_value_preview(channels))
+    return id_columns, channels
+
+
+def choose_summary_group_column(
+    group_column: str | None,
+    channel_values: list[str],
+) -> tuple[str | None, bool]:
+    """Use channel as the plot/summary split for multi-channel CSVs without a group."""
+    if group_column:
+        return group_column, False
+    if len(channel_values) >= 2:
+        return CHANNEL_COLUMN, True
+    return None, False
 
 
 def safe_name(value: object, max_len: int = 80) -> str:
@@ -185,6 +268,8 @@ def parse_recorded_phases(value: object = None) -> tuple[str, ...]:
         "stimulation": STIMULATION_LABEL,
         "stim": STIMULATION_LABEL,
         "current": STIMULATION_LABEL,
+        "during": STIMULATION_LABEL,
+        "perfusion": STIMULATION_LABEL,
         "post": POST_LABEL,
         "after": POST_LABEL,
         "recovery": POST_LABEL,
@@ -212,6 +297,8 @@ def parse_comparisons(value: object = None) -> tuple[str, ...]:
         "stimulation": COMPARISON_STIMULATION,
         "stim": COMPARISON_STIMULATION,
         "current": COMPARISON_STIMULATION,
+        "during": COMPARISON_STIMULATION,
+        "perfusion": COMPARISON_STIMULATION,
         "post": COMPARISON_POST,
         "after": COMPARISON_POST,
         "recovery": COMPARISON_POST,
@@ -410,6 +497,7 @@ def prepare_output_dir(out_dir: Path) -> None:
     generated_files = [
         "baseline_post_summary.csv",
         "baseline_split_percent_changes.csv",
+        "channel_percent_changes.csv",
         "cleaned_window_level_firing_rates.csv",
         "experiment_part_summary.csv",
         "experiment_part_unit_values.csv",
@@ -569,6 +657,17 @@ def clean_post_label(epoch_label: object) -> str:
     return text or POST_LABEL
 
 
+def is_perfusion_label(value: object) -> bool:
+    return "perfusion" in normalise_name(value)
+
+
+def display_stimulation_label(value: object, perfusion_label: str | None = None) -> str:
+    label = str(value)
+    if perfusion_label and is_perfusion_label(value):
+        return perfusion_label.strip()
+    return label
+
+
 def validate_and_prepare_data(df: pd.DataFrame) -> pd.DataFrame:
     df = standardise_columns(df.copy())
 
@@ -651,9 +750,15 @@ def choose_group_column(df: pd.DataFrame, requested: str | None) -> str | None:
     normalised_columns = {normalise_name(col): col for col in df.columns}
 
     if requested:
+        requested_norm = normalise_name(requested)
+        if requested_norm in {normalise_name(col) for col in PHASE_LABEL_COLUMNS}:
+            print(
+                f"'{requested}' is the phase-label column used for Baseline/Stimulation/Post labels, "
+                "so it will not be used as a separate treatment/group column."
+            )
+            return None
         if requested in df.columns:
             return requested
-        requested_norm = normalise_name(requested)
         if requested_norm in normalised_columns:
             return normalised_columns[requested_norm]
         else:
@@ -672,6 +777,23 @@ def choose_group_column(df: pd.DataFrame, requested: str | None) -> str | None:
     return None
 
 
+def print_phase_label_report(df: pd.DataFrame) -> None:
+    print("Using epoch_label as the phase-label column.")
+    phase_counts = (
+        df.groupby(["phase", "epoch_label"], dropna=False)
+        .size()
+        .reset_index(name="n_rows")
+        .sort_values(["phase", "epoch_label"], kind="stable")
+    )
+    print("Recognized epoch labels:")
+    for phase, labels in phase_counts.groupby("phase", sort=False):
+        label_text = ", ".join(
+            f"{row['epoch_label']} ({int(row['n_rows'])})"
+            for _, row in labels.iterrows()
+        )
+        print(f"  {phase}: {label_text}")
+
+
 def collapse_to_unit_means(
     df: pd.DataFrame,
     id_columns: tuple[str, ...],
@@ -681,9 +803,8 @@ def collapse_to_unit_means(
     if missing_id_cols:
         raise ValueError(f"ID column(s) not found in data: {missing_id_cols}")
 
-    group_cols = list(id_columns)
+    group_cols = combined_key_columns(id_columns, group_column)
     if group_column:
-        group_cols.append(group_column)
         df[group_column] = df[group_column].astype("string").fillna("Unlabeled").astype(str)
 
     phase_cols = ["phase"]
@@ -755,9 +876,7 @@ def add_baseline_half_labels(
     df = df.copy()
     df["baseline_half"] = pd.NA
 
-    group_cols = list(id_columns)
-    if group_column:
-        group_cols.append(group_column)
+    group_cols = combined_key_columns(id_columns, group_column)
 
     baseline = df[df["condition"] == BASELINE_LABEL]
     if baseline.empty:
@@ -776,9 +895,7 @@ def build_baseline_half_table(
     group_column: str | None,
 ) -> pd.DataFrame:
     """Build unit-level first-half vs second-half Baseline percent changes."""
-    group_cols = list(id_columns)
-    if group_column:
-        group_cols.append(group_column)
+    group_cols = combined_key_columns(id_columns, group_column)
 
     baseline = df[
         (df["condition"] == BASELINE_LABEL)
@@ -851,9 +968,7 @@ def build_paired_tables(
     id_columns: tuple[str, ...],
     group_column: str | None,
 ) -> dict[str, pd.DataFrame]:
-    index_cols = list(id_columns)
-    if group_column:
-        index_cols.append(group_column)
+    index_cols = combined_key_columns(id_columns, group_column)
 
     paired_tables: dict[str, pd.DataFrame] = {}
     wide = unit_means.pivot_table(
@@ -921,14 +1036,33 @@ def assign_experiment_parts(
     df["stimulation_label"] = pd.NA
     df["part_label"] = pd.NA
 
-    group_cols = list(id_columns)
-    if group_column:
-        group_cols.append(group_column)
+    group_cols = combined_key_columns(id_columns, group_column)
 
     sort_cols = experiment_sort_columns(df)
 
     for _, unit in df.groupby(group_cols, dropna=False, sort=False):
         unit = unit.sort_values(sort_cols, kind="stable") if sort_cols else unit.copy()
+
+        if allow_post_without_stimulation and not (unit["phase"] == STIMULATION_LABEL).any():
+            post_rows = unit[unit["phase"] == POST_LABEL].copy()
+            post_labels = (
+                post_rows["post_label_raw"]
+                .fillna(POST_LABEL)
+                .astype(str)
+                .str.strip()
+                .replace("", POST_LABEL)
+            )
+            label_order = post_labels.drop_duplicates().tolist()
+            label_to_part = {label: index for index, label in enumerate(label_order, start=1)}
+            for label, part_index in label_to_part.items():
+                label_mask = post_labels == label
+                block_index = post_rows.index[label_mask]
+                part_label = f"Part {part_index}: {label}"
+                df.loc[block_index, "part_index"] = part_index
+                df.loc[block_index, "stimulation_label"] = label
+                df.loc[block_index, "part_label"] = part_label
+            continue
+
         block_key = np.where(
             unit["phase"] == STIMULATION_LABEL,
             unit["stimulation_label_raw"].fillna(STIMULATION_LABEL).astype(str),
@@ -988,9 +1122,7 @@ def build_experiment_part_table(
     group_column: str | None,
 ) -> pd.DataFrame:
     """Return one row per paired unit and experiment part."""
-    group_cols = list(id_columns)
-    if group_column:
-        group_cols.append(group_column)
+    group_cols = combined_key_columns(id_columns, group_column)
 
     baseline_means = (
         df[df["phase"] == BASELINE_LABEL]
@@ -1153,11 +1285,166 @@ def build_experiment_part_table(
     return out.sort_values([*group_cols, "part_index"], kind="stable").reset_index(drop=True)
 
 
+def build_channel_percent_change_table(
+    part_table: pd.DataFrame,
+    baseline_change: pd.DataFrame,
+    group_column: str | None,
+) -> pd.DataFrame:
+    """Summarize percent changes independently for each channel in multi-channel CSVs."""
+    frames = [
+        frame
+        for frame in (baseline_change, part_table)
+        if frame is not None and not frame.empty and CHANNEL_COLUMN in frame.columns
+    ]
+    channel_values: list[str] = []
+    for frame in frames:
+        channel_values.extend(unique_nonblank_strings(frame[CHANNEL_COLUMN]))
+    channel_values = list(dict.fromkeys(channel_values))
+    if len(channel_values) < 2:
+        return pd.DataFrame()
+
+    all_columns: set[str] = set()
+    for frame in frames:
+        all_columns.update(frame.columns)
+
+    id_cols = [CHANNEL_COLUMN]
+    if (
+        group_column
+        and normalise_name(group_column) != normalise_name(CHANNEL_COLUMN)
+        and group_column in all_columns
+    ):
+        id_cols.append(group_column)
+
+    rows: list[dict[str, object]] = []
+
+    def numeric_values(frame: pd.DataFrame, col: str) -> pd.Series:
+        if col not in frame.columns:
+            return pd.Series(dtype="float64")
+        return pd.to_numeric(frame[col], errors="coerce").dropna()
+
+    def numeric_mean(frame: pd.DataFrame, col: str) -> float:
+        values = numeric_values(frame, col)
+        return float(values.mean()) if len(values) else np.nan
+
+    def first_label(frame: pd.DataFrame, col: str, default: str) -> str:
+        if col not in frame.columns:
+            return default
+        values = unique_nonblank_strings(frame[col])
+        return values[0] if values else default
+
+    def iter_grouped(frame: pd.DataFrame, cols: list[str]):
+        grouped = frame.groupby(cols, dropna=False, sort=False)
+        for key, sub in grouped:
+            if not isinstance(key, tuple):
+                key = (key,)
+            yield dict(zip(cols, key)), sub
+
+    baseline_cols = [col for col in id_cols if col in baseline_change.columns]
+    if baseline_cols and "percent_change" in baseline_change.columns:
+        valid_baseline = baseline_change[baseline_change["percent_change"].notna()].copy()
+        for ids, sub in iter_grouped(valid_baseline, baseline_cols):
+            pct = numeric_values(sub, "percent_change")
+            if pct.empty:
+                continue
+            rows.append(
+                {
+                    **ids,
+                    "part_index": pd.NA,
+                    "part_label": "",
+                    "stimulation_label": "",
+                    "comparison": COMPARISON_BASELINE,
+                    "phase": BASELINE_LABEL,
+                    "percent_reference_label": BASELINE_FIRST_HALF_LABEL,
+                    "percent_reference_hz_mean": numeric_mean(sub, "percent_reference_hz"),
+                    "baseline_hz_mean": numeric_mean(sub, "baseline_hz"),
+                    "comparison_hz_mean": numeric_mean(sub, "post_hz"),
+                    "percent_change_mean": float(pct.mean()),
+                    "percent_change_sem": sem(pct),
+                    "percent_change_n": int(pct.count()),
+                    "percent_change_error_mean": np.nan,
+                }
+            )
+
+    if part_table is not None and not part_table.empty and CHANNEL_COLUMN in part_table.columns:
+        part_id_cols = [col for col in id_cols if col in part_table.columns]
+        part_cols = [
+            col
+            for col in ("part_index", "part_label", "stimulation_label")
+            if col in part_table.columns
+        ]
+        specs = [
+            (
+                COMPARISON_STIMULATION,
+                STIMULATION_LABEL,
+                "stimulation_percent_change",
+                "stimulation_hz",
+                "stimulation_percent_change_error",
+            ),
+            (
+                COMPARISON_POST,
+                POST_LABEL,
+                "post_percent_change",
+                "post_hz",
+                "post_percent_change_error",
+            ),
+        ]
+
+        for keys, sub in iter_grouped(part_table, [*part_id_cols, *part_cols]):
+            base = {col: keys.get(col, pd.NA) for col in [*id_cols, *part_cols]}
+            for comparison, phase, percent_col, hz_col, error_col in specs:
+                pct = numeric_values(sub, percent_col)
+                if pct.empty:
+                    continue
+                rows.append(
+                    {
+                        **base,
+                        "comparison": comparison,
+                        "phase": phase,
+                        "percent_reference_label": first_label(
+                            sub,
+                            "percent_reference_label",
+                            BASELINE_SECOND_HALF_LABEL,
+                        ),
+                        "percent_reference_hz_mean": numeric_mean(sub, "percent_reference_hz"),
+                        "baseline_hz_mean": numeric_mean(sub, "baseline_hz"),
+                        "comparison_hz_mean": numeric_mean(sub, hz_col),
+                        "percent_change_mean": float(pct.mean()),
+                        "percent_change_sem": sem(pct),
+                        "percent_change_n": int(pct.count()),
+                        "percent_change_error_mean": numeric_mean(sub, error_col),
+                    }
+                )
+
+    if not rows:
+        return pd.DataFrame()
+
+    out = pd.DataFrame(rows)
+    preferred = [
+        *id_cols,
+        "part_index",
+        "part_label",
+        "stimulation_label",
+        "comparison",
+        "phase",
+        "percent_reference_label",
+        "percent_reference_hz_mean",
+        "baseline_hz_mean",
+        "comparison_hz_mean",
+        "percent_change_mean",
+        "percent_change_sem",
+        "percent_change_n",
+        "percent_change_error_mean",
+    ]
+    other_cols = [col for col in out.columns if col not in preferred]
+    return out[[col for col in preferred if col in out.columns] + other_cols]
+
+
 def make_experiment_part_summary(
     part_table: pd.DataFrame,
     df: pd.DataFrame,
     group_column: str | None,
     comparisons: tuple[str, ...] | None = None,
+    run_unpaired_tests: bool = True,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     summary_rows: list[dict[str, object]] = []
     unpaired_rows: list[dict[str, object]] = []
@@ -1229,7 +1516,7 @@ def make_experiment_part_summary(
                     }
                 )
 
-        if group_column:
+        if group_column and run_unpaired_tests:
             group_names = sorted(part[group_column].dropna().astype(str).unique())
             for spec in phase_specs:
                 pct_col = spec["percent_col"]
@@ -1822,8 +2109,11 @@ def title_for_part_plot(
     stimulation_label: object,
     part_label: object,
     part_titles: dict[str, str] | None = None,
+    perfusion_title: str | None = None,
 ) -> str:
     default_title = str(stimulation_label)
+    if perfusion_title and is_perfusion_label(stimulation_label):
+        default_title = perfusion_title.strip()
     if not part_titles:
         return default_title
 
@@ -1844,6 +2134,8 @@ def plot_part_spike_frequency(
     group_column: str | None,
     out_dir: Path,
     comparisons: tuple[str, ...] | None = None,
+    perfusion_title: str | None = None,
+    perfusion_label: str | None = None,
 ) -> None:
     """Plot absolute spike frequency for Baseline and selected recorded phases."""
     if part_table.empty:
@@ -1858,6 +2150,7 @@ def plot_part_spike_frequency(
         dropna=False,
         sort=True,
     ):
+        stimulation_display_label = display_stimulation_label(stimulation_label, perfusion_label)
         value_specs = [
             {
                 "phase": BASELINE_LABEL,
@@ -1870,7 +2163,7 @@ def plot_part_spike_frequency(
             value_specs.append(
                 {
                     "phase": STIMULATION_LABEL,
-                    "label": str(stimulation_label),
+                    "label": stimulation_display_label,
                     "value_col": "stimulation_hz",
                     "error_col": "stimulation_window_error_hz",
                 }
@@ -1878,7 +2171,7 @@ def plot_part_spike_frequency(
         if COMPARISON_POST in comparison_set and part["post_hz"].notna().any():
             post_label = POST_LABEL
             if "stimulation_hz" in part.columns and not part["stimulation_hz"].notna().any():
-                post_label = str(stimulation_label)
+                post_label = stimulation_display_label
             value_specs.append(
                 {
                     "phase": POST_LABEL,
@@ -1985,7 +2278,16 @@ def plot_part_spike_frequency(
             ax.set_title("" if group == "All units" and group_column is None else str(group))
             despine(ax)
 
-        fig.suptitle(str(stimulation_label), y=1.02, fontsize=13)
+        fig.suptitle(
+            title_for_part_plot(
+                part_index,
+                stimulation_label,
+                part_label,
+                perfusion_title=perfusion_title,
+            ),
+            y=1.02,
+            fontsize=13,
+        )
         fig.tight_layout()
         save_figure(fig, freq_dir, f"spike_frequency_part_{int(part_index):02d}_{safe_name(stimulation_label)}")
 
@@ -2002,6 +2304,8 @@ def plot_part_percent_change(
     id_columns: tuple[str, ...] | None = None,
     pooled_title: str | None = None,
     part_titles: dict[str, str] | None = None,
+    perfusion_title: str | None = None,
+    perfusion_label: str | None = None,
 ) -> None:
     """Plot selected percent-change comparisons for each experiment part."""
     percent_dir = out_dir / "percent_change_by_part"
@@ -2016,6 +2320,8 @@ def plot_part_percent_change(
             percent_dir,
             comparisons,
             title=pooled_title,
+            perfusion_title=perfusion_title,
+            perfusion_label=perfusion_label,
         )
         return
 
@@ -2030,6 +2336,7 @@ def plot_part_percent_change(
         dropna=False,
         sort=True,
     ):
+        stimulation_display_label = display_stimulation_label(stimulation_label, perfusion_label)
         value_specs: list[dict[str, str]] = []
         if COMPARISON_BASELINE in comparison_set and part["baseline_percent_change"].notna().any():
             value_specs.append(
@@ -2045,7 +2352,7 @@ def plot_part_percent_change(
             value_specs.append(
                 {
                     "phase": STIMULATION_LABEL,
-                    "label": str(stimulation_label),
+                    "label": stimulation_display_label,
                     "value_col": "stimulation_percent_change",
                     "error_col": "stimulation_percent_change_error",
                     "color": "#777777",
@@ -2054,7 +2361,7 @@ def plot_part_percent_change(
         if COMPARISON_POST in comparison_set and part["post_percent_change"].notna().any():
             post_label = POST_LABEL
             if "stimulation_hz" in part.columns and not part["stimulation_hz"].notna().any():
-                post_label = str(stimulation_label)
+                post_label = stimulation_display_label
             value_specs.append(
                 {
                     "phase": POST_LABEL,
@@ -2160,7 +2467,17 @@ def plot_part_percent_change(
             despine(ax)
             use_zero_x_axis(ax)
 
-        fig.suptitle(title_for_part_plot(part_index, stimulation_label, part_label, part_titles), y=1.02, fontsize=13)
+        fig.suptitle(
+            title_for_part_plot(
+                part_index,
+                stimulation_label,
+                part_label,
+                part_titles,
+                perfusion_title=perfusion_title,
+            ),
+            y=1.02,
+            fontsize=13,
+        )
         fig.tight_layout()
         save_figure(fig, percent_dir, f"percent_change_part_{int(part_index):02d}_{safe_name(stimulation_label)}")
 
@@ -2173,12 +2490,12 @@ def plot_pooled_part_percent_change(
     percent_dir: Path,
     comparisons: tuple[str, ...] | None = None,
     title: str | None = None,
+    perfusion_title: str | None = None,
+    perfusion_label: str | None = None,
 ) -> None:
     """Plot all selected percent-change categories in one figure without merging labels."""
     comparison_set = set(comparisons or DEFAULT_COMPARISONS)
-    group_cols = list(id_columns)
-    if group_column:
-        group_cols.append(group_column)
+    group_cols = combined_key_columns(id_columns, group_column)
 
     def row_group_label(row: pd.Series) -> str:
         if not group_column:
@@ -2228,6 +2545,7 @@ def plot_pooled_part_percent_change(
     pooled_rows: list[dict[str, object]] = []
     significance_by_group_key: dict[tuple[str, str], str] = {}
     fallback_error_by_group_key: dict[tuple[str, str], float] = {}
+    perfusion_seen = False
 
     def add_category(key: str, label: str, color: str) -> None:
         if key in {str(spec["key"]) for spec in category_specs}:
@@ -2315,6 +2633,7 @@ def plot_pooled_part_percent_change(
         comparison_name: str,
         color: str,
     ) -> None:
+        nonlocal perfusion_seen
         if comparison_name not in comparison_set:
             return
         phase_rows = df[df["phase"] == phase].copy()
@@ -2327,6 +2646,12 @@ def plot_pooled_part_percent_change(
         )
         phase_rows["_pooled_label"] = phase_rows["_pooled_label"].astype(str).str.strip()
         phase_rows.loc[phase_rows["_pooled_label"] == "", "_pooled_label"] = fallback_label
+        if phase == STIMULATION_LABEL:
+            perfusion_mask = phase_rows[label_col].map(is_perfusion_label)
+            if perfusion_mask.any():
+                perfusion_seen = True
+                if perfusion_label:
+                    phase_rows.loc[perfusion_mask, "_pooled_label"] = perfusion_label.strip()
         if phase == POST_LABEL and "part_index" in phase_rows.columns:
             generic_post = phase_rows["_pooled_label"].map(normalise_name).eq("post")
             numbered_part = generic_post & phase_rows["part_index"].notna()
@@ -2553,7 +2878,10 @@ def plot_pooled_part_percent_change(
         despine(ax)
         use_zero_x_axis(ax)
 
-    fig.suptitle((title or "Firing change from Baseline").strip() or "Firing change from Baseline", y=1.02, fontsize=13)
+    plot_title = title
+    if perfusion_seen and perfusion_title:
+        plot_title = perfusion_title
+    fig.suptitle((plot_title or "Firing change from Baseline").strip() or "Firing change from Baseline", y=1.02, fontsize=13)
     fig.tight_layout()
     save_figure(fig, percent_dir, "percent_change_pooled_by_phase")
 
@@ -2568,9 +2896,7 @@ def plot_time_course(
         return
 
     time_dir = out_dir / "time_course"
-    group_cols = list(id_columns)
-    if group_column:
-        group_cols.append(group_column)
+    group_cols = combined_key_columns(id_columns, group_column)
 
     units = list(df.groupby(group_cols, dropna=False))
     if len(units) > MAX_TIME_COURSE_UNITS:
@@ -2640,6 +2966,7 @@ def write_outputs(
     unit_means: pd.DataFrame,
     part_table: pd.DataFrame,
     baseline_change: pd.DataFrame,
+    channel_percent_changes: pd.DataFrame,
     summary: pd.DataFrame,
     unpaired: pd.DataFrame,
     out_dir: Path,
@@ -2649,6 +2976,8 @@ def write_outputs(
     unit_means.to_csv(out_dir / "unit_condition_mean_firing_rates.csv", index=False)
     baseline_change.to_csv(out_dir / "baseline_split_percent_changes.csv", index=False)
     part_table.to_csv(out_dir / "experiment_part_unit_values.csv", index=False)
+    if channel_percent_changes is not None and not channel_percent_changes.empty:
+        channel_percent_changes.to_csv(out_dir / "channel_percent_changes.csv", index=False)
     summary.to_csv(out_dir / "experiment_part_summary.csv", index=False)
     summary.to_csv(out_dir / "baseline_post_summary.csv", index=False)
 
@@ -2699,11 +3028,18 @@ def parse_args() -> argparse.Namespace:
         default=CSV_SEPARATOR,
         help="CSV delimiter. Default auto-detects. Use ',' ';' or '\\t' if needed.",
     )
-    parser.add_argument("--group-col", default=GROUP_COLUMN, help="Optional grouping column for unpaired tests.")
+    parser.add_argument(
+        "--group-col",
+        default=GROUP_COLUMN,
+        help=(
+            "Optional treatment/group column for between-group Welch tests. "
+            "Do not use epoch_label here; epoch_label is always used for Baseline/Stimulation/Post phase labels."
+        ),
+    )
     parser.add_argument(
         "--id-cols",
         default=",".join(ID_COLUMNS),
-        help="Comma-separated paired-unit ID columns. Default: recording_name,channel.",
+        help="Comma-separated paired-unit ID columns. Default: channel.",
     )
     parser.add_argument(
         "--no-time-course",
@@ -2742,6 +3078,8 @@ def parse_args() -> argparse.Namespace:
             "Accepts JSON, e.g. {\"part:1\":\"Post 1\"}, or semicolon key=title entries."
         ),
     )
+    parser.add_argument("--perfusion-title", default="", help="Plot title to use for parts whose epoch label contains Perfusion.")
+    parser.add_argument("--perfusion-label", default="", help="Plot label to use for parts whose epoch label contains Perfusion.")
     return parser.parse_args()
 
 
@@ -2787,13 +3125,16 @@ def main() -> None:
     df = df[df["phase"].isin(recorded_phases)].copy()
     if df.empty:
         raise ValueError("No rows remain after applying the selected recorded phases.")
+    print_phase_label_report(df)
 
     id_columns = tuple(col.strip() for col in args.id_cols.split(",") if col.strip())
+    id_columns, channel_values = ensure_channel_id_column_for_multichannel_csv(df, id_columns)
     group_column = choose_group_column(df, args.group_col)
     if group_column:
-        print(f"Using group column for unpaired tests: {group_column}")
-    else:
-        print("No group column found/requested; unpaired percent-change tests will be skipped.")
+        print(f"Using optional treatment/group column for between-group Welch tests: {group_column}")
+    summary_group_column, auto_channel_summary = choose_summary_group_column(group_column, channel_values)
+    if auto_channel_summary:
+        print("No treatment/group column selected; summaries and plots will be split by channel.")
 
     allow_post_without_stimulation = (
         STIMULATION_LABEL not in recorded_phases
@@ -2837,7 +3178,14 @@ def main() -> None:
 
     unit_means = collapse_to_unit_means(df, id_columns, group_column)
     part_table = build_experiment_part_table(df, baseline_change, id_columns, group_column)
-    summary, unpaired = make_experiment_part_summary(part_table, df, group_column, comparison_names)
+    channel_percent_changes = build_channel_percent_change_table(part_table, baseline_change, group_column)
+    summary, unpaired = make_experiment_part_summary(
+        part_table,
+        df,
+        summary_group_column,
+        comparison_names,
+        run_unpaired_tests=group_column is not None,
+    )
 
     if part_table.empty and any(name in comparison_names for name in (COMPARISON_STIMULATION, COMPARISON_POST)):
         raise ValueError(
@@ -2846,13 +3194,21 @@ def main() -> None:
         )
 
     if COMPARISON_BASELINE in comparison_names:
-        plot_baseline_split_percent_change(baseline_change, group_column, out_dir)
+        plot_baseline_split_percent_change(baseline_change, summary_group_column, out_dir)
     if any(name in comparison_names for name in (COMPARISON_STIMULATION, COMPARISON_POST)):
-        plot_part_spike_frequency(part_table, summary, group_column, out_dir, comparison_names)
+        plot_part_spike_frequency(
+            part_table,
+            summary,
+            summary_group_column,
+            out_dir,
+            comparison_names,
+            perfusion_title=args.perfusion_title.strip(),
+            perfusion_label=args.perfusion_label.strip(),
+        )
     plot_part_percent_change(
         part_table,
         summary,
-        group_column,
+        summary_group_column,
         out_dir,
         comparison_names,
         pool_comparisons=args.pool_percent_change_comparisons,
@@ -2861,13 +3217,17 @@ def main() -> None:
         id_columns=id_columns,
         pooled_title=args.pooled_percent_title,
         part_titles=percent_part_titles,
+        perfusion_title=args.perfusion_title.strip(),
+        perfusion_label=args.perfusion_label.strip(),
     )
     plot_time_course(df, id_columns, group_column, out_dir)
-    write_outputs(df, unit_means, part_table, baseline_change, summary, unpaired, out_dir)
+    write_outputs(df, unit_means, part_table, baseline_change, channel_percent_changes, summary, unpaired, out_dir)
 
     print("\nDone.")
     print(f"Saved outputs to: {out_dir.resolve()}")
     print("Main summary CSV: baseline_post_summary.csv")
+    if not channel_percent_changes.empty:
+        print("Per-channel percent-change CSV: channel_percent_changes.csv")
 
 
 if __name__ == "__main__":
