@@ -81,6 +81,10 @@ COMPARISON_STIMULATION = "stimulation"
 COMPARISON_POST = "post"
 DEFAULT_RECORDED_PHASES = (COMPARISON_BASELINE, COMPARISON_STIMULATION, COMPARISON_POST)
 DEFAULT_COMPARISONS = (COMPARISON_BASELINE, COMPARISON_STIMULATION, COMPARISON_POST)
+MIDDLE_PHASE_SPLIT_WHOLE = "whole"
+MIDDLE_PHASE_SPLIT_HALVES = "halves"
+MIDDLE_PHASE_SPLIT_THIRDS = "thirds"
+DEFAULT_MIDDLE_PHASE_SPLIT = MIDDLE_PHASE_SPLIT_WHOLE
 
 MAKE_TIME_COURSE = True
 MAX_TIME_COURSE_UNITS = 80
@@ -331,37 +335,107 @@ def filter_comparisons_for_phases(
     return tuple(comparison for comparison in comparisons if comparison in allowed)
 
 
-def phase_specs_for_comparisons(comparisons: tuple[str, ...] | None = None) -> list[dict[str, str]]:
+def parse_middle_phase_split(value: object = None) -> str:
+    text = str(value or DEFAULT_MIDDLE_PHASE_SPLIT).strip().lower()
+    aliases = {
+        "whole": MIDDLE_PHASE_SPLIT_WHOLE,
+        "full": MIDDLE_PHASE_SPLIT_WHOLE,
+        "all": MIDDLE_PHASE_SPLIT_WHOLE,
+        "1": MIDDLE_PHASE_SPLIT_WHOLE,
+        "half": MIDDLE_PHASE_SPLIT_HALVES,
+        "halves": MIDDLE_PHASE_SPLIT_HALVES,
+        "2": MIDDLE_PHASE_SPLIT_HALVES,
+        "third": MIDDLE_PHASE_SPLIT_THIRDS,
+        "thirds": MIDDLE_PHASE_SPLIT_THIRDS,
+        "3": MIDDLE_PHASE_SPLIT_THIRDS,
+    }
+    if text not in aliases:
+        raise ValueError("Middle phase split must be whole, halves, or thirds.")
+    return aliases[text]
+
+
+def middle_phase_segment_specs(split_mode: str = DEFAULT_MIDDLE_PHASE_SPLIT) -> list[dict[str, str]]:
+    split_mode = parse_middle_phase_split(split_mode)
+    if split_mode == MIDDLE_PHASE_SPLIT_HALVES:
+        return [
+            {"prefix": "stimulation_first_half", "suffix": "first half", "phase": "Stimulation first half"},
+            {"prefix": "stimulation_second_half", "suffix": "second half", "phase": "Stimulation second half"},
+        ]
+    if split_mode == MIDDLE_PHASE_SPLIT_THIRDS:
+        return [
+            {"prefix": "stimulation_first_third", "suffix": "first third", "phase": "Stimulation first third"},
+            {"prefix": "stimulation_middle_third", "suffix": "middle third", "phase": "Stimulation middle third"},
+            {"prefix": "stimulation_final_third", "suffix": "final third", "phase": "Stimulation final third"},
+        ]
+    return [{"prefix": "stimulation", "suffix": "", "phase": STIMULATION_LABEL}]
+
+
+def middle_phase_display_label(
+    value: object,
+    segment: dict[str, str],
+    perfusion_label: str | None = None,
+    epoch_titles: dict[str, str] | None = None,
+) -> str:
+    base = display_stimulation_label(value, perfusion_label, epoch_titles)
+    suffix = segment.get("suffix", "").strip()
+    return f"{base} {suffix}".strip() if suffix else base
+
+
+def all_middle_phase_segment_prefixes() -> list[str]:
+    prefixes: list[str] = []
+    for mode in (MIDDLE_PHASE_SPLIT_WHOLE, MIDDLE_PHASE_SPLIT_HALVES, MIDDLE_PHASE_SPLIT_THIRDS):
+        for spec in middle_phase_segment_specs(mode):
+            if spec["prefix"] not in prefixes:
+                prefixes.append(spec["prefix"])
+    return prefixes
+
+
+def phase_specs_for_comparisons(
+    comparisons: tuple[str, ...] | None = None,
+    middle_phase_split: str = DEFAULT_MIDDLE_PHASE_SPLIT,
+) -> list[dict[str, str]]:
     comparison_set = set(comparisons or DEFAULT_COMPARISONS)
     specs: list[dict[str, str]] = []
     if COMPARISON_BASELINE in comparison_set:
         specs.append(
             {
                 "phase": BASELINE_LABEL,
+                "source_phase": BASELINE_LABEL,
+                "prefix": "baseline",
                 "hz_col": "baseline_hz",
                 "percent_col": "baseline_percent_change",
+                "error_col": "baseline_percent_change_error",
                 "test_a": "baseline_first_half_hz",
                 "test_b": "baseline_second_half_hz",
                 "comparison": "Baseline first half vs Baseline second half",
             }
         )
     if COMPARISON_STIMULATION in comparison_set:
-        specs.append(
-            {
-                "phase": STIMULATION_LABEL,
-                "hz_col": "stimulation_hz",
-                "percent_col": "stimulation_percent_change",
-                "test_a": "baseline_hz",
-                "test_b": "stimulation_hz",
-                "comparison": "Baseline vs stimulation",
-            }
-        )
+        for segment in middle_phase_segment_specs(middle_phase_split):
+            prefix = segment["prefix"]
+            phase_label = segment["phase"]
+            specs.append(
+                {
+                    "phase": phase_label,
+                    "source_phase": STIMULATION_LABEL,
+                    "prefix": prefix,
+                    "hz_col": f"{prefix}_hz",
+                    "percent_col": f"{prefix}_percent_change",
+                    "error_col": f"{prefix}_percent_change_error",
+                    "test_a": "baseline_hz",
+                    "test_b": f"{prefix}_hz",
+                    "comparison": f"Baseline vs {phase_label}",
+                }
+            )
     if COMPARISON_POST in comparison_set:
         specs.append(
             {
                 "phase": POST_LABEL,
+                "source_phase": POST_LABEL,
+                "prefix": "post",
                 "hz_col": "post_hz",
                 "percent_col": "post_percent_change",
+                "error_col": "post_percent_change_error",
                 "test_a": "baseline_hz",
                 "test_b": "post_hz",
                 "comparison": "Baseline vs Post",
@@ -467,6 +541,40 @@ def add_sig_label(
         return
     ax.plot([x1, x1, x2, x2], [y, y + line_height, y + line_height, y], color="black", lw=1.0)
     ax.text((x1 + x2) / 2, y + line_height, text, ha="center", va="bottom", fontsize=fontsize, weight="bold")
+
+
+def plot_group_label(group: str, group_column: str | None) -> str:
+    if group == "All units" and group_column is None:
+        return ""
+    return str(group)
+
+
+def add_png_corner_channel_label(
+    fig: plt.Figure,
+    group: str,
+    group_column: str | None,
+    show_channel_labels: bool = True,
+) -> None:
+    """Place the channel/group label on the PNG canvas, outside the plotting axes."""
+    label = plot_group_label(group, group_column) if show_channel_labels else ""
+    if not label:
+        return
+    fig.text(
+        0.985,
+        0.985,
+        label,
+        ha="right",
+        va="top",
+        fontsize=11,
+        fontweight="bold",
+        color="#111111",
+        bbox={
+            "facecolor": "white",
+            "edgecolor": "none",
+            "alpha": 0.85,
+            "pad": 1.8,
+        },
+    )
 
 
 def save_figure(fig: plt.Figure, out_dir: Path, base_name: str) -> None:
@@ -1146,13 +1254,55 @@ def assign_experiment_parts(
     return df
 
 
+def add_middle_phase_segment_labels(
+    df: pd.DataFrame,
+    id_columns: tuple[str, ...],
+    group_column: str | None,
+    split_mode: str = DEFAULT_MIDDLE_PHASE_SPLIT,
+) -> pd.DataFrame:
+    """Label stimulation/perfusion windows by whole, half, or third within each part."""
+    df = df.copy()
+    split_mode = parse_middle_phase_split(split_mode)
+    segment_specs = middle_phase_segment_specs(split_mode)
+    group_cols = combined_key_columns(id_columns, group_column)
+
+    df["_middle_phase_metric"] = pd.NA
+    df["_middle_phase_segment_label"] = pd.NA
+    df["_middle_phase_segment_index"] = pd.NA
+
+    if "part_index" not in df.columns:
+        return df
+
+    stim = df[(df["phase"] == STIMULATION_LABEL) & df["part_index"].notna()].copy()
+    if stim.empty:
+        return df
+
+    sort_cols = experiment_sort_columns(stim)
+    for _, block in stim.groupby([*group_cols, "part_index"], dropna=False, sort=False):
+        block = block.sort_values(sort_cols, kind="stable") if sort_cols else block.copy()
+        chunks = np.array_split(block.index.to_numpy(), len(segment_specs))
+        for segment_index, (segment, indices) in enumerate(zip(segment_specs, chunks), start=1):
+            if len(indices) == 0:
+                continue
+            df.loc[indices, "_middle_phase_metric"] = segment["prefix"]
+            df.loc[indices, "_middle_phase_segment_label"] = segment["suffix"]
+            df.loc[indices, "_middle_phase_segment_index"] = segment_index
+
+    return df
+
+
 def build_experiment_part_table(
     df: pd.DataFrame,
     baseline_change: pd.DataFrame,
     id_columns: tuple[str, ...],
     group_column: str | None,
+    middle_phase_split: str = DEFAULT_MIDDLE_PHASE_SPLIT,
 ) -> pd.DataFrame:
     """Return one row per paired unit and experiment part."""
+    middle_phase_split = parse_middle_phase_split(middle_phase_split)
+    if "_middle_phase_metric" not in df.columns:
+        df = add_middle_phase_segment_labels(df, id_columns, group_column, middle_phase_split)
+
     group_cols = combined_key_columns(id_columns, group_column)
 
     baseline_means = (
@@ -1239,6 +1389,63 @@ def build_experiment_part_table(
         baseline_subset = baseline_subset.rename(columns={"percent_change": "baseline_percent_change"})
         out = out.merge(baseline_subset, on=group_cols, how="left")
 
+    split_segment_specs = [
+        segment
+        for segment in middle_phase_segment_specs(middle_phase_split)
+        if segment["prefix"] != "stimulation"
+    ]
+    if split_segment_specs and "_middle_phase_metric" in part_rows.columns:
+        split_prefixes = [segment["prefix"] for segment in split_segment_specs]
+        split_rows = part_rows[
+            (part_rows["phase"] == STIMULATION_LABEL)
+            & part_rows["_middle_phase_metric"].isin(split_prefixes)
+        ].copy()
+        if not split_rows.empty:
+            split_means = (
+                split_rows.groupby([*index_cols, "_middle_phase_metric"], dropna=False)
+                .agg(
+                    mean_firing_rate_hz=("firing_rate_hz", "mean"),
+                    error_firing_rate_hz=("firing_rate_hz", error_bar),
+                    n_windows=("firing_rate_hz", "count"),
+                )
+                .reset_index()
+            )
+            split_mean_wide = split_means.pivot_table(
+                index=index_cols,
+                columns="_middle_phase_metric",
+                values="mean_firing_rate_hz",
+                aggfunc="first",
+            ).reset_index()
+            split_count_wide = split_means.pivot_table(
+                index=index_cols,
+                columns="_middle_phase_metric",
+                values="n_windows",
+                aggfunc="first",
+            ).reset_index()
+            split_error_wide = split_means.pivot_table(
+                index=index_cols,
+                columns="_middle_phase_metric",
+                values="error_firing_rate_hz",
+                aggfunc="first",
+            ).reset_index()
+
+            split_mean_wide = split_mean_wide.rename(
+                columns={prefix: f"{prefix}_hz" for prefix in split_prefixes}
+            )
+            split_count_wide = split_count_wide.rename(
+                columns={prefix: f"{prefix}_n_windows" for prefix in split_prefixes}
+            )
+            split_error_wide = split_error_wide.rename(
+                columns={prefix: f"{prefix}_window_error_hz" for prefix in split_prefixes}
+            )
+            out = out.merge(split_mean_wide, on=index_cols, how="left")
+            out = out.merge(split_count_wide, on=index_cols, how="left")
+            out = out.merge(split_error_wide, on=index_cols, how="left")
+
+    middle_prefixes = ["stimulation"]
+    for segment in middle_phase_segment_specs(middle_phase_split):
+        if segment["prefix"] not in middle_prefixes:
+            middle_prefixes.append(segment["prefix"])
     for col in [
         "stimulation_hz",
         "post_hz",
@@ -1255,6 +1462,11 @@ def build_experiment_part_table(
     ]:
         if col not in out.columns:
             out[col] = np.nan
+    for prefix in middle_prefixes:
+        for suffix in ("hz", "n_windows", "window_error_hz"):
+            col = f"{prefix}_{suffix}"
+            if col not in out.columns:
+                out[col] = np.nan
 
     out["percent_reference_hz"] = out["baseline_second_half_hz"].combine_first(out["baseline_hz"])
     out["percent_reference_label"] = np.where(
@@ -1262,25 +1474,27 @@ def build_experiment_part_table(
         BASELINE_SECOND_HALF_LABEL,
         BASELINE_LABEL,
     )
-    out["stimulation_delta_hz"] = out["stimulation_hz"] - out["baseline_hz"]
     out["post_delta_hz"] = out["post_hz"] - out["baseline_hz"]
-    out["stimulation_percent_change"] = np.where(
-        out["percent_reference_hz"] != 0,
-        ((out["stimulation_hz"] - out["percent_reference_hz"]) / out["percent_reference_hz"]) * 100.0,
-        np.nan,
-    )
     out["post_percent_change"] = np.where(
         out["percent_reference_hz"] != 0,
         ((out["post_hz"] - out["percent_reference_hz"]) / out["percent_reference_hz"]) * 100.0,
         np.nan,
     )
+    for prefix in middle_prefixes:
+        out[f"{prefix}_delta_hz"] = out[f"{prefix}_hz"] - out["baseline_hz"]
+        out[f"{prefix}_percent_change"] = np.where(
+            out["percent_reference_hz"] != 0,
+            ((out[f"{prefix}_hz"] - out["percent_reference_hz"]) / out["percent_reference_hz"]) * 100.0,
+            np.nan,
+        )
 
     for col in [
         "baseline_percent_change_error",
-        "stimulation_percent_change_error",
         "post_percent_change_error",
     ]:
         out[col] = np.nan
+    for prefix in middle_prefixes:
+        out[f"{prefix}_percent_change_error"] = np.nan
 
     for row_index, row in out.iterrows():
         unit_mask = pd.Series(True, index=df.index)
@@ -1305,9 +1519,13 @@ def build_experiment_part_table(
         if pd.notna(baseline_second_ref) and baseline_second_ref != 0:
             part_mask = unit_mask & (df["part_index"] == row["part_index"])
 
-            stim_windows = df[part_mask & (df["phase"] == STIMULATION_LABEL)]["firing_rate_hz"]
-            stim_pct_windows = ((stim_windows - baseline_second_ref) / baseline_second_ref) * 100.0
-            out.loc[row_index, "stimulation_percent_change_error"] = error_bar(stim_pct_windows)
+            for prefix in middle_prefixes:
+                stim_mask = part_mask & (df["phase"] == STIMULATION_LABEL)
+                if prefix != "stimulation" and "_middle_phase_metric" in df.columns:
+                    stim_mask &= df["_middle_phase_metric"] == prefix
+                stim_windows = df[stim_mask]["firing_rate_hz"]
+                stim_pct_windows = ((stim_windows - baseline_second_ref) / baseline_second_ref) * 100.0
+                out.loc[row_index, f"{prefix}_percent_change_error"] = error_bar(stim_pct_windows)
 
             post_windows = df[part_mask & (df["phase"] == POST_LABEL)]["firing_rate_hz"]
             post_pct_windows = ((post_windows - baseline_second_ref) / baseline_second_ref) * 100.0
@@ -1320,6 +1538,7 @@ def build_channel_percent_change_table(
     part_table: pd.DataFrame,
     baseline_change: pd.DataFrame,
     group_column: str | None,
+    middle_phase_split: str = DEFAULT_MIDDLE_PHASE_SPLIT,
 ) -> pd.DataFrame:
     """Summarize percent changes independently for each channel in multi-channel CSVs."""
     frames = [
@@ -1403,14 +1622,19 @@ def build_channel_percent_change_table(
             for col in ("part_index", "part_label", "stimulation_label")
             if col in part_table.columns
         ]
-        specs = [
-            (
-                COMPARISON_STIMULATION,
-                STIMULATION_LABEL,
-                "stimulation_percent_change",
-                "stimulation_hz",
-                "stimulation_percent_change_error",
-            ),
+        specs = []
+        for segment in middle_phase_segment_specs(middle_phase_split):
+            prefix = segment["prefix"]
+            specs.append(
+                (
+                    COMPARISON_STIMULATION,
+                    segment["phase"],
+                    f"{prefix}_percent_change",
+                    f"{prefix}_hz",
+                    f"{prefix}_percent_change_error",
+                )
+            )
+        specs.append(
             (
                 COMPARISON_POST,
                 POST_LABEL,
@@ -1418,7 +1642,7 @@ def build_channel_percent_change_table(
                 "post_hz",
                 "post_percent_change_error",
             ),
-        ]
+        )
 
         for keys, sub in iter_grouped(part_table, [*part_id_cols, *part_cols]):
             base = {col: keys.get(col, pd.NA) for col in [*id_cols, *part_cols]}
@@ -1476,6 +1700,7 @@ def make_experiment_part_summary(
     group_column: str | None,
     comparisons: tuple[str, ...] | None = None,
     run_unpaired_tests: bool = True,
+    middle_phase_split: str = DEFAULT_MIDDLE_PHASE_SPLIT,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     summary_rows: list[dict[str, object]] = []
     unpaired_rows: list[dict[str, object]] = []
@@ -1483,7 +1708,7 @@ def make_experiment_part_summary(
     if part_table.empty:
         return pd.DataFrame(), pd.DataFrame()
 
-    phase_specs = phase_specs_for_comparisons(comparisons)
+    phase_specs = phase_specs_for_comparisons(comparisons, middle_phase_split)
 
     for (part_index, stimulation_label, part_label), part in part_table.groupby(
         ["part_index", "stimulation_label", "part_label"],
@@ -1511,9 +1736,10 @@ def make_experiment_part_summary(
                     test_name, p_value, paired_n = window_level_paired_test(
                         df,
                         int(part_index),
-                        spec["phase"],
+                        spec["source_phase"],
                         group,
                         group_column,
+                        metric_prefix=spec.get("prefix"),
                     )
 
                 summary_rows.append(
@@ -1631,6 +1857,7 @@ def window_level_paired_test(
     phase: str,
     group: str,
     group_column: str | None,
+    metric_prefix: str | None = None,
 ) -> tuple[str, float, int]:
     """Fallback paired t-test for one-unit datasets using matched ordered windows."""
     sub = df.copy()
@@ -1651,7 +1878,15 @@ def window_level_paired_test(
         )
 
     baseline = sorted_window_rates(sub[sub["phase"] == BASELINE_LABEL])
-    comparison = sorted_window_rates(sub[(sub["part_index"] == int(part_index)) & (sub["phase"] == phase)])
+    comparison_rows = sub[(sub["part_index"] == int(part_index)) & (sub["phase"] == phase)].copy()
+    if (
+        phase == STIMULATION_LABEL
+        and metric_prefix
+        and metric_prefix != "stimulation"
+        and "_middle_phase_metric" in comparison_rows.columns
+    ):
+        comparison_rows = comparison_rows[comparison_rows["_middle_phase_metric"] == metric_prefix]
+    comparison = sorted_window_rates(comparison_rows)
     return paired_test_ordered_windows(
         baseline,
         comparison,
@@ -2021,6 +2256,7 @@ def plot_baseline_split_percent_change(
     group_column: str | None,
     out_dir: Path,
     epoch_titles: dict[str, str] | None = None,
+    show_channel_labels: bool = True,
 ) -> None:
     """Plot Baseline first-half vs second-half percent change on its own."""
     if baseline_change is None or baseline_change.empty or "percent_change" not in baseline_change.columns:
@@ -2037,22 +2273,24 @@ def plot_baseline_split_percent_change(
         groups = sorted(plot_data[group_column].dropna().astype(str).unique())
     baseline_display_label = title_for_epoch_label(BASELINE_LABEL, epoch_titles, BASELINE_LABEL)
 
-    n_groups = len(groups)
-    fig_width = max(3.4 * n_groups, 3.8)
-    fig, axes = plt.subplots(1, n_groups, figsize=(fig_width, 4.1), sharey=True)
-    if n_groups == 1:
-        axes = [axes]
-
-    all_values = plot_data["percent_change"].to_numpy(dtype=float)
-    y_min = min(0.0, float(np.nanmin(all_values)))
-    y_max = max(0.0, float(np.nanmax(all_values)))
-    y_span = max(y_max - y_min, 1.0)
-
-    for ax, group in zip(axes, groups):
+    for group in groups:
         sub = plot_data if group == "All units" else plot_data[plot_data[group_column].astype(str) == group]
         vals = sub["percent_change"].dropna().to_numpy(dtype=float)
+        if vals.size == 0:
+            continue
         mean = float(np.nanmean(vals)) if vals.size else np.nan
         err = error_bar(vals) if vals.size else np.nan
+        y_candidates = vals.tolist()
+        if np.isfinite(mean):
+            y_candidates.append(mean)
+            if np.isfinite(err):
+                y_candidates.extend([mean - err, mean + err])
+        finite_y = np.array([value for value in y_candidates if np.isfinite(value)], dtype=float)
+        y_min = min(0.0, float(np.nanmin(finite_y))) if finite_y.size else -1.0
+        y_max = max(0.0, float(np.nanmax(finite_y))) if finite_y.size else 1.0
+        y_span = max(y_max - y_min, 1.0)
+
+        fig, ax = plt.subplots(figsize=(3.8, 4.1))
 
         ax.bar(
             [0],
@@ -2086,13 +2324,14 @@ def plot_baseline_split_percent_change(
         ax.set_xlim(-0.55, 0.55)
         ax.set_ylim(*percent_axis_limits(y_min, y_max, top_pad=0.24))
         ax.set_ylabel(f"Firing change from {baseline_display_label} (%)")
-        ax.set_title("" if group == "All units" and group_column is None else str(group))
         despine(ax)
         use_zero_x_axis(ax)
 
-    fig.suptitle(f"{baseline_display_label} first half vs second half", y=1.02, fontsize=13)
-    fig.tight_layout()
-    save_figure(fig, out_dir / "percent_change", "percent_change_baseline_first_half_vs_second_half")
+        fig.suptitle(f"{baseline_display_label} first half vs second half", y=1.02, fontsize=13)
+        fig.tight_layout()
+        add_png_corner_channel_label(fig, group, group_column, show_channel_labels)
+        suffix = "" if group == "All units" and group_column is None else f"_{safe_name(group)}"
+        save_figure(fig, out_dir / "percent_change", f"percent_change_baseline_first_half_vs_second_half{suffix}")
 
 
 def part_groups(part: pd.DataFrame, group_column: str | None) -> list[str]:
@@ -2171,6 +2410,8 @@ def plot_part_spike_frequency(
     perfusion_title: str | None = None,
     perfusion_label: str | None = None,
     epoch_titles: dict[str, str] | None = None,
+    middle_phase_split: str = DEFAULT_MIDDLE_PHASE_SPLIT,
+    show_channel_labels: bool = True,
 ) -> None:
     """Plot absolute spike frequency for Baseline and selected recorded phases."""
     if part_table.empty:
@@ -2195,15 +2436,24 @@ def plot_part_spike_frequency(
                 "error_col": "baseline_window_error_hz",
             }
         ]
-        if COMPARISON_STIMULATION in comparison_set and part["stimulation_hz"].notna().any():
-            value_specs.append(
-                {
-                    "phase": STIMULATION_LABEL,
-                    "label": stimulation_display_label,
-                    "value_col": "stimulation_hz",
-                    "error_col": "stimulation_window_error_hz",
-                }
-            )
+        if COMPARISON_STIMULATION in comparison_set:
+            for segment in middle_phase_segment_specs(middle_phase_split):
+                prefix = segment["prefix"]
+                value_col = f"{prefix}_hz"
+                if value_col in part.columns and part[value_col].notna().any():
+                    value_specs.append(
+                        {
+                            "phase": segment["phase"],
+                            "label": middle_phase_display_label(
+                                stimulation_label,
+                                segment,
+                                perfusion_label,
+                                epoch_titles,
+                            ),
+                            "value_col": value_col,
+                            "error_col": f"{prefix}_window_error_hz",
+                        }
+                    )
         if COMPARISON_POST in comparison_set and part["post_hz"].notna().any():
             post_label = POST_LABEL
             if "stimulation_hz" in part.columns and not part["stimulation_hz"].notna().any():
@@ -2295,7 +2545,7 @@ def plot_part_spike_frequency(
             )
 
             bracket_i = 0
-            for phase in (STIMULATION_LABEL, POST_LABEL):
+            for phase in [spec["phase"] for spec in value_specs if spec["phase"] != BASELINE_LABEL]:
                 if phase not in phase_to_x:
                     continue
                 bracket_i += 1
@@ -2313,7 +2563,6 @@ def plot_part_spike_frequency(
             ax.set_xlim(-0.45, len(value_specs) - 0.55)
             ax.set_ylim(y_min - 0.03 * y_span, y_max + 0.34 * y_span)
             ax.set_ylabel("Spike frequency (Hz)")
-            ax.set_title("" if group == "All units" and group_column is None else str(group))
             despine(ax)
 
         fig.suptitle(
@@ -2328,6 +2577,8 @@ def plot_part_spike_frequency(
             fontsize=13,
         )
         fig.tight_layout()
+        if n_groups == 1:
+            add_png_corner_channel_label(fig, groups[0], group_column, show_channel_labels)
         save_figure(fig, freq_dir, f"spike_frequency_part_{int(part_index):02d}_{safe_name(stimulation_label)}")
 
 
@@ -2346,6 +2597,8 @@ def plot_part_percent_change(
     perfusion_title: str | None = None,
     perfusion_label: str | None = None,
     epoch_titles: dict[str, str] | None = None,
+    middle_phase_split: str = DEFAULT_MIDDLE_PHASE_SPLIT,
+    show_channel_labels: bool = True,
 ) -> None:
     """Plot selected percent-change comparisons for each experiment part."""
     percent_dir = out_dir / "percent_change_by_part"
@@ -2363,6 +2616,8 @@ def plot_part_percent_change(
             perfusion_title=perfusion_title,
             perfusion_label=perfusion_label,
             epoch_titles=epoch_titles,
+            middle_phase_split=middle_phase_split,
+            show_channel_labels=show_channel_labels,
         )
         return
 
@@ -2390,16 +2645,25 @@ def plot_part_percent_change(
                     "color": "white",
                 }
             )
-        if COMPARISON_STIMULATION in comparison_set and part["stimulation_percent_change"].notna().any():
-            value_specs.append(
-                {
-                    "phase": STIMULATION_LABEL,
-                    "label": stimulation_display_label,
-                    "value_col": "stimulation_percent_change",
-                    "error_col": "stimulation_percent_change_error",
-                    "color": "#777777",
-                }
-            )
+        if COMPARISON_STIMULATION in comparison_set:
+            for segment in middle_phase_segment_specs(middle_phase_split):
+                prefix = segment["prefix"]
+                value_col = f"{prefix}_percent_change"
+                if value_col in part.columns and part[value_col].notna().any():
+                    value_specs.append(
+                        {
+                            "phase": segment["phase"],
+                            "label": middle_phase_display_label(
+                                stimulation_label,
+                                segment,
+                                perfusion_label,
+                                epoch_titles,
+                            ),
+                            "value_col": value_col,
+                            "error_col": f"{prefix}_percent_change_error",
+                            "color": "#777777",
+                        }
+                    )
         if COMPARISON_POST in comparison_set and part["post_percent_change"].notna().any():
             post_label = POST_LABEL
             if "stimulation_hz" in part.columns and not part["stimulation_hz"].notna().any():
@@ -2426,38 +2690,37 @@ def plot_part_percent_change(
         phase_to_x = {spec["phase"]: i for i, spec in enumerate(value_specs)}
 
         groups = part_groups(part, group_column)
-        n_groups = len(groups)
-        fig_width = max(4.1 * n_groups, 4.4)
-        fig, axes = plt.subplots(1, n_groups, figsize=(fig_width, 4.3), sharey=True)
-        if n_groups == 1:
-            axes = [axes]
-
-        all_values_matrix = part[value_cols].to_numpy(dtype=float)
-        if all(col in part.columns for col in error_cols):
-            all_errors_matrix = part[error_cols].to_numpy(dtype=float)
-            all_y = np.concatenate(
-                [
-                    all_values_matrix.ravel(),
-                    (all_values_matrix + all_errors_matrix).ravel(),
-                    (all_values_matrix - all_errors_matrix).ravel(),
-                ]
-            )
-        else:
-            all_y = all_values_matrix.ravel()
-        finite_y = all_y[np.isfinite(all_y)]
-        if finite_y.size == 0:
-            plt.close(fig)
-            continue
-
-        y_min = min(0.0, float(np.nanmin(finite_y)))
-        y_max = max(0.0, float(np.nanmax(finite_y)))
-        y_span = max(y_max - y_min, 1.0)
         x = np.arange(len(value_specs), dtype=float)
+        plot_title = title_for_part_plot(
+            part_index,
+            stimulation_label,
+            part_label,
+            part_titles,
+            perfusion_title=perfusion_title,
+            epoch_titles=epoch_titles,
+        )
 
-        for ax, group in zip(axes, groups):
+        for group in groups:
             sub = part if group == "All units" else part[part[group_column].astype(str) == group]
             means = [sub[col].mean() for col in value_cols]
             errors = plot_errors_for_columns(sub, value_cols, error_cols)
+            plot_y_values: list[float] = []
+            for mean, err, col in zip(means, errors, value_cols):
+                vals = sub[col].dropna().to_numpy(dtype=float)
+                plot_y_values.extend(vals[np.isfinite(vals)].tolist())
+                if np.isfinite(mean):
+                    plot_y_values.append(float(mean))
+                    if np.isfinite(err):
+                        plot_y_values.extend([float(mean - err), float(mean + err)])
+            finite_y = np.array([value for value in plot_y_values if np.isfinite(value)], dtype=float)
+            if finite_y.size == 0:
+                continue
+            y_min = min(0.0, float(np.nanmin(finite_y)))
+            y_max = max(0.0, float(np.nanmax(finite_y)))
+            y_span = max(y_max - y_min, 1.0)
+
+            fig_width = max(4.4, 0.8 * len(value_specs) + 2.2)
+            fig, ax = plt.subplots(figsize=(fig_width, 4.3))
 
             for xi, mean, err, color, col in zip(x, means, errors, colors, value_cols):
                 ax.bar(
@@ -2489,7 +2752,7 @@ def plot_part_percent_change(
             bracket_i = 0
             baseline_x = phase_to_x.get(BASELINE_LABEL)
             if baseline_x is not None:
-                for phase in (STIMULATION_LABEL, POST_LABEL):
+                for phase in [spec["phase"] for spec in value_specs if spec["phase"] != BASELINE_LABEL]:
                     if phase not in phase_to_x:
                         continue
                     bracket_i += 1
@@ -2507,24 +2770,18 @@ def plot_part_percent_change(
             ax.set_xlim(-0.45, len(value_specs) - 0.55)
             ax.set_ylim(*percent_axis_limits(y_min, y_max, top_pad=0.36))
             ax.set_ylabel(f"Firing change from {baseline_display_label} (%)")
-            ax.set_title("" if group == "All units" and group_column is None else str(group))
             despine(ax)
             use_zero_x_axis(ax)
 
-        fig.suptitle(
-            title_for_part_plot(
-                part_index,
-                stimulation_label,
-                part_label,
-                part_titles,
-                perfusion_title=perfusion_title,
-                epoch_titles=epoch_titles,
-            ),
-            y=1.02,
-            fontsize=13,
-        )
-        fig.tight_layout()
-        save_figure(fig, percent_dir, f"percent_change_part_{int(part_index):02d}_{safe_name(stimulation_label)}")
+            fig.suptitle(plot_title, y=1.02, fontsize=13)
+            fig.tight_layout()
+            add_png_corner_channel_label(fig, group, group_column, show_channel_labels)
+            group_suffix = "" if group == "All units" and group_column is None else f"_{safe_name(group)}"
+            save_figure(
+                fig,
+                percent_dir,
+                f"percent_change_part_{int(part_index):02d}_{safe_name(stimulation_label)}{group_suffix}",
+            )
 
 
 def plot_pooled_part_percent_change(
@@ -2538,6 +2795,8 @@ def plot_pooled_part_percent_change(
     perfusion_title: str | None = None,
     perfusion_label: str | None = None,
     epoch_titles: dict[str, str] | None = None,
+    middle_phase_split: str = DEFAULT_MIDDLE_PHASE_SPLIT,
+    show_channel_labels: bool = True,
 ) -> None:
     """Plot all selected percent-change categories in one figure without merging labels."""
     comparison_set = set(comparisons or DEFAULT_COMPARISONS)
@@ -2699,20 +2958,38 @@ def plot_pooled_part_percent_change(
                 perfusion_seen = True
                 if perfusion_label:
                     phase_rows.loc[perfusion_mask, "_pooled_label"] = perfusion_label.strip()
+            if parse_middle_phase_split(middle_phase_split) != MIDDLE_PHASE_SPLIT_WHOLE:
+                segment_by_prefix = {
+                    segment["prefix"]: segment
+                    for segment in middle_phase_segment_specs(middle_phase_split)
+                }
+                phase_rows["_pooled_label"] = phase_rows.apply(
+                    lambda row: middle_phase_display_label(
+                        row[label_col],
+                        segment_by_prefix.get(
+                            str(row.get("_middle_phase_metric")),
+                            {"prefix": "stimulation", "suffix": "", "phase": STIMULATION_LABEL},
+                        ),
+                        perfusion_label,
+                        epoch_titles,
+                    ),
+                    axis=1,
+                )
         if phase == POST_LABEL and "part_index" in phase_rows.columns:
             generic_post = phase_rows["_pooled_label"].map(normalise_name).eq("post")
             numbered_part = generic_post & phase_rows["part_index"].notna()
             phase_rows.loc[numbered_part, "_pooled_label"] = (
                 "Post " + phase_rows.loc[numbered_part, "part_index"].astype(int).astype(str)
             )
-        phase_rows["_pooled_label"] = phase_rows.apply(
-            lambda row: (
-                row["_pooled_label"]
-                if perfusion_label and phase == STIMULATION_LABEL and is_perfusion_label(row[label_col])
-                else title_for_epoch_label(row["_pooled_label"], epoch_titles, str(row["_pooled_label"]))
-            ),
-            axis=1,
-        )
+        if phase != STIMULATION_LABEL or parse_middle_phase_split(middle_phase_split) == MIDDLE_PHASE_SPLIT_WHOLE:
+            phase_rows["_pooled_label"] = phase_rows.apply(
+                lambda row: (
+                    row["_pooled_label"]
+                    if perfusion_label and phase == STIMULATION_LABEL and is_perfusion_label(row[label_col])
+                    else title_for_epoch_label(row["_pooled_label"], epoch_titles, str(row["_pooled_label"]))
+                ),
+                axis=1,
+            )
 
         label_order = (
             phase_rows.sort_values("_row_order", kind="stable")["_pooled_label"]
@@ -2812,14 +3089,8 @@ def plot_pooled_part_percent_change(
     labels = [str(spec["label"]) for spec in category_specs]
     colors = [str(spec["color"]) for spec in category_specs]
     category_keys = [str(spec["key"]) for spec in category_specs]
-    n_groups = len(groups)
-    fig_width = max(4.4 * n_groups, (0.82 * len(category_specs) + 2.1) * n_groups)
-    fig, axes = plt.subplots(1, n_groups, figsize=(fig_width, 4.3), sharey=True)
-    if n_groups == 1:
-        axes = [axes]
 
     group_stats: dict[str, dict[str, object]] = {}
-    plot_y_values: list[float] = []
     for group in groups:
         sub = pooled[pooled["group"] == group]
         means: list[float] = []
@@ -2835,33 +3106,42 @@ def plot_pooled_part_percent_change(
                 err = fallback_error_by_group_key.get((str(group), key), float("nan"))
             means.append(mean)
             errors.append(err)
-            if np.isfinite(mean):
-                plot_y_values.append(mean)
-                if np.isfinite(err):
-                    plot_y_values.extend([mean - err, mean + err])
         group_stats[group] = {
             "means": means,
             "errors": errors,
             "values_by_label": values_by_label,
         }
 
-    finite_values = np.array([value for value in plot_y_values if np.isfinite(value)], dtype=float)
-    if finite_values.size == 0:
-        plt.close(fig)
-        print("Skipping pooled percent-change plot: no finite values.")
-        return
-    y_min = min(0.0, float(np.nanmin(finite_values)))
-    y_max = max(0.0, float(np.nanmax(finite_values)))
-    y_span = max(y_max - y_min, 1.0)
     top_pad = min(0.95, 0.24 + 0.10 * max(1, len(category_specs)))
     x = np.arange(len(category_specs), dtype=float)
     baseline_x = category_keys.index("baseline") if "baseline" in category_keys else None
+    plot_title = title
+    if perfusion_seen and perfusion_title:
+        plot_title = perfusion_title
+    fallback_title = f"Firing change from {baseline_display_label}"
 
-    for ax, group in zip(axes, groups):
+    saved_any = False
+    for group in groups:
         stats_for_group = group_stats[group]
         means = stats_for_group["means"]
         errors = stats_for_group["errors"]
         values_by_label = stats_for_group["values_by_label"]
+        plot_y_values: list[float] = []
+        for mean, err, vals in zip(means, errors, values_by_label):
+            plot_y_values.extend(vals[np.isfinite(vals)].tolist())
+            if np.isfinite(mean):
+                plot_y_values.append(float(mean))
+                if np.isfinite(err):
+                    plot_y_values.extend([float(mean - err), float(mean + err)])
+        finite_values = np.array([value for value in plot_y_values if np.isfinite(value)], dtype=float)
+        if finite_values.size == 0:
+            continue
+        y_min = min(0.0, float(np.nanmin(finite_values)))
+        y_max = max(0.0, float(np.nanmax(finite_values)))
+        y_span = max(y_max - y_min, 1.0)
+
+        fig_width = max(4.4, 0.82 * len(category_specs) + 2.1)
+        fig, ax = plt.subplots(figsize=(fig_width, 4.3))
 
         for xi, mean, err, color, vals in zip(x, means, errors, colors, values_by_label):
             if np.isfinite(mean):
@@ -2929,17 +3209,18 @@ def plot_pooled_part_percent_change(
         ax.set_xlim(-0.45, len(category_specs) - 0.55)
         ax.set_ylim(*percent_axis_limits(y_min, y_max, top_pad=top_pad))
         ax.set_ylabel(f"Firing change from {baseline_display_label} (%)")
-        ax.set_title("" if group == "All units" and group_column is None else str(group))
         despine(ax)
         use_zero_x_axis(ax)
 
-    plot_title = title
-    if perfusion_seen and perfusion_title:
-        plot_title = perfusion_title
-    fallback_title = f"Firing change from {baseline_display_label}"
-    fig.suptitle((plot_title or fallback_title).strip() or fallback_title, y=1.02, fontsize=13)
-    fig.tight_layout()
-    save_figure(fig, percent_dir, "percent_change_pooled_by_phase")
+        fig.suptitle((plot_title or fallback_title).strip() or fallback_title, y=1.02, fontsize=13)
+        fig.tight_layout()
+        add_png_corner_channel_label(fig, group, group_column, show_channel_labels)
+        suffix = "" if group == "All units" and group_column is None else f"_{safe_name(group)}"
+        save_figure(fig, percent_dir, f"percent_change_pooled_by_phase{suffix}")
+        saved_any = True
+
+    if not saved_any:
+        print("Skipping pooled percent-change plot: no finite values.")
 
 
 def plot_time_course(
@@ -3058,6 +3339,20 @@ def write_outputs(
         ]
         if col in part_table.columns
     ]
+    for prefix in all_middle_phase_segment_prefixes():
+        if prefix == "stimulation":
+            continue
+        for suffix in (
+            "hz",
+            "n_windows",
+            "window_error_hz",
+            "delta_hz",
+            "percent_change",
+            "percent_change_error",
+        ):
+            col = f"{prefix}_{suffix}"
+            if col in part_table.columns and col not in percent_cols:
+                percent_cols.append(col)
     unit_percent_cols = [*leading_id_cols, *percent_cols]
     if unit_percent_cols:
         part_table[unit_percent_cols].to_csv(out_dir / "unit_percent_changes.csv", index=False)
@@ -3123,6 +3418,12 @@ def parse_args() -> argparse.Namespace:
         help="Pool selected stimulation/Post percent-change values across experiment parts into one plot.",
     )
     parser.add_argument(
+        "--middle-phase-split",
+        default=DEFAULT_MIDDLE_PHASE_SPLIT,
+        choices=(MIDDLE_PHASE_SPLIT_WHOLE, MIDDLE_PHASE_SPLIT_HALVES, MIDDLE_PHASE_SPLIT_THIRDS),
+        help="Compare Baseline to the whole stimulation/perfusion phase, each half, or each third.",
+    )
+    parser.add_argument(
         "--pooled-percent-title",
         default="",
         help="Custom title for the pooled percent-change plot.",
@@ -3145,6 +3446,11 @@ def parse_args() -> argparse.Namespace:
             "e.g. {\"baseline\":\"Control\",\"post 1\":\"Recovery 1\"}."
         ),
     )
+    parser.add_argument(
+        "--no-channel-labels",
+        action="store_true",
+        help="Hide channel/group labels on Baseline change plot PNGs.",
+    )
     return parser.parse_args()
 
 
@@ -3163,6 +3469,8 @@ def main() -> None:
     epoch_titles = parse_title_mapping(args.epoch_titles)
     if args.perfusion_title.strip() and not any(normalise_name(key).replace("_", "") == "perfusion" for key in epoch_titles):
         epoch_titles["perfusion"] = args.perfusion_title.strip()
+    middle_phase_split = parse_middle_phase_split(args.middle_phase_split)
+    show_channel_labels = not args.no_channel_labels
 
     input_path = find_input_file(
         args.input,
@@ -3218,6 +3526,7 @@ def main() -> None:
         group_column,
         allow_post_without_stimulation=allow_post_without_stimulation,
     )
+    df = add_middle_phase_segment_labels(df, id_columns, group_column, middle_phase_split)
     detected_parts = (
         df.loc[df["part_index"].notna(), ["part_index", "stimulation_label"]]
         .drop_duplicates()
@@ -3245,14 +3554,26 @@ def main() -> None:
         )
 
     unit_means = collapse_to_unit_means(df, id_columns, group_column)
-    part_table = build_experiment_part_table(df, baseline_change, id_columns, group_column)
-    channel_percent_changes = build_channel_percent_change_table(part_table, baseline_change, group_column)
+    part_table = build_experiment_part_table(
+        df,
+        baseline_change,
+        id_columns,
+        group_column,
+        middle_phase_split=middle_phase_split,
+    )
+    channel_percent_changes = build_channel_percent_change_table(
+        part_table,
+        baseline_change,
+        group_column,
+        middle_phase_split=middle_phase_split,
+    )
     summary, unpaired = make_experiment_part_summary(
         part_table,
         df,
         summary_group_column,
         comparison_names,
         run_unpaired_tests=group_column is not None,
+        middle_phase_split=middle_phase_split,
     )
 
     if part_table.empty and any(name in comparison_names for name in (COMPARISON_STIMULATION, COMPARISON_POST)):
@@ -3262,7 +3583,13 @@ def main() -> None:
         )
 
     if COMPARISON_BASELINE in comparison_names:
-        plot_baseline_split_percent_change(baseline_change, summary_group_column, out_dir, epoch_titles=epoch_titles)
+        plot_baseline_split_percent_change(
+            baseline_change,
+            summary_group_column,
+            out_dir,
+            epoch_titles=epoch_titles,
+            show_channel_labels=show_channel_labels,
+        )
     if any(name in comparison_names for name in (COMPARISON_STIMULATION, COMPARISON_POST)):
         plot_part_spike_frequency(
             part_table,
@@ -3273,6 +3600,8 @@ def main() -> None:
             perfusion_title=args.perfusion_title.strip(),
             perfusion_label=args.perfusion_label.strip(),
             epoch_titles=epoch_titles,
+            middle_phase_split=middle_phase_split,
+            show_channel_labels=show_channel_labels,
         )
     plot_part_percent_change(
         part_table,
@@ -3289,6 +3618,8 @@ def main() -> None:
         perfusion_title=args.perfusion_title.strip(),
         perfusion_label=args.perfusion_label.strip(),
         epoch_titles=epoch_titles,
+        middle_phase_split=middle_phase_split,
+        show_channel_labels=show_channel_labels,
     )
     plot_time_course(df, id_columns, group_column, out_dir, epoch_titles=epoch_titles)
     write_outputs(df, unit_means, part_table, baseline_change, channel_percent_changes, summary, unpaired, out_dir)

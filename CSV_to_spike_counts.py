@@ -431,6 +431,13 @@ def parse_args(argv=None):
             "e.g. {\"baseline\":\"Control\",\"post 1\":\"Recovery 1\"}."
         ),
     )
+    parser.add_argument(
+        "--no-legend",
+        action="store_false",
+        dest="show_legend",
+        default=True,
+        help="Do not include the epoch/boundary legend in saved plots.",
+    )
     return parser.parse_args(argv)
 
 
@@ -654,7 +661,16 @@ def main():
                 ax.spines["bottom"].set_linewidth(1.2)
 
 
-            handles2 = [
+            channel_handle = Line2D(
+                [0],
+                [0],
+                color=args.trace_color,
+                marker=trace_marker,
+                linewidth=args.trace_linewidth,
+                label=f"Channel: {ch}",
+            )
+
+            handles2 = [channel_handle] + [
                 h for h in epoch_handles
                 if h.get_label() != "Post"
             ] + [
@@ -674,8 +690,8 @@ def main():
                     )
                 )
 
-            if handles2:
-                legend2 = ax.legend(
+            if args.show_legend and handles2:
+                ax.legend(
                     handles=handles2,
                     loc="upper left",
                     bbox_to_anchor=(1.01, 1),

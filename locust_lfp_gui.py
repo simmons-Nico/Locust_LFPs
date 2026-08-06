@@ -21,6 +21,8 @@ from tkinter import filedialog, messagebox
 import tkinter as tk
 from tkinter import ttk
 
+from PIL import Image, ImageTk
+
 
 APP_NAME = "Signal Processing for Insect Electrophysiology (SPIE)"
 APP_SHORT_NAME = "SPIE"
@@ -35,25 +37,34 @@ BROWSE_START_DIR = Path(r"C:\Users\simmons\Desktop\Exploring PSDs")
 DEFAULT_DATA_DIR = BROWSE_START_DIR
 
 STEP_COLORS = {
-    "raw": "#0f766e",
-    "spike": "#b45309",
-    "plot": "#2563eb",
-    "success": "#15803d",
-    "danger": "#b91c1c",
-    "surface": "#f8fafc",
-    "border": "#cbd5e1",
-    "text": "#0f172a",
-    "muted": "#475569",
+    "raw": "#2dd4bf",
+    "raw_active": "#5eead4",
+    "spike": "#facc15",
+    "spike_active": "#fde047",
+    "plot": "#60a5fa",
+    "plot_active": "#93c5fd",
+    "success": "#22c55e",
+    "danger": "#fb7185",
+    "surface": "#07111f",
+    "panel": "#0f172a",
+    "panel_alt": "#111c2e",
+    "input": "#020617",
+    "border": "#334155",
+    "border_strong": "#475569",
+    "text": "#f8fafc",
+    "muted": "#94a3b8",
+    "terminal": "#020617",
+    "terminal_text": "#d9f99d",
 }
 
 EPOCH_ROW_COLORS = {
-    "baseline": "#dbeafe",
-    "stimulation": "#fef3c7",
-    "post": "#dcfce7",
-    "unlabeled": "#f1f5f9",
+    "baseline": "#172554",
+    "stimulation": "#422006",
+    "post": "#052e16",
+    "unlabeled": "#1e293b",
 }
 
-PERFUSION_CONCENTRATIONS = ("10mM", "1mM", "100uM")
+PERFUSION_CONCENTRATIONS = ("", "10mM", "1mM", "100uM")
 
 EPOCH_TITLE_FIELDS = (
     ("baseline", "Baseline", "Baseline"),
@@ -104,6 +115,9 @@ class QueueWriter:
 
 
 def load_script_module(path: Path, module_name: str):
+    script_dir = str(path.resolve().parent)
+    if script_dir not in sys.path:
+        sys.path.insert(0, script_dir)
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load script: {path}")
@@ -200,6 +214,9 @@ class LocustPipelineApp:
         self.root.minsize(960, 560)
         self.log_queue: queue.Queue[str] = queue.Queue()
         self.worker_thread: threading.Thread | None = None
+        self.logo_image: ImageTk.PhotoImage | None = None
+        self.processing_window: tk.Toplevel | None = None
+        self.processing_text: tk.Text | None = None
 
         self.recordings: list[dict[str, str]] = []
 
@@ -213,23 +230,85 @@ class LocustPipelineApp:
         self.style = ttk.Style(self.root)
         with contextlib.suppress(tk.TclError):
             self.style.theme_use("clam")
+        base_font = ("Segoe UI", 10)
+        field_font = ("Segoe UI", 9)
+        subsection_font = ("Segoe UI", 10, "bold")
+        section_font = ("Segoe UI", 11, "bold")
         self.root.configure(bg=STEP_COLORS["surface"])
+        self.root.option_add("*Font", base_font)
+        self.root.option_add("*selectBackground", STEP_COLORS["plot"])
+        self.root.option_add("*selectForeground", STEP_COLORS["input"])
+        self.root.option_add("*TCombobox*Listbox.background", STEP_COLORS["input"])
+        self.root.option_add("*TCombobox*Listbox.foreground", STEP_COLORS["text"])
+        self.root.option_add("*TCombobox*Listbox.selectBackground", STEP_COLORS["plot"])
+        self.root.option_add("*TCombobox*Listbox.selectForeground", STEP_COLORS["input"])
         self.style.configure("TFrame", background=STEP_COLORS["surface"])
-        self.style.configure("TLabelframe", background=STEP_COLORS["surface"], bordercolor=STEP_COLORS["border"])
-        self.style.configure("TLabelframe.Label", background=STEP_COLORS["surface"], foreground=STEP_COLORS["text"])
-        self.style.configure("TLabel", background=STEP_COLORS["surface"], foreground=STEP_COLORS["text"])
-        self.style.configure("Hint.TLabel", foreground=STEP_COLORS["muted"])
-        self.style.configure("Accent.TButton", background=STEP_COLORS["plot"], foreground="white", padding=(12, 7))
-        self.style.map("Accent.TButton", background=[("active", "#1d4ed8")])
-        self.style.configure("Raw.TButton", background=STEP_COLORS["raw"], foreground="white", padding=(10, 6))
-        self.style.map("Raw.TButton", background=[("active", "#115e59")])
-        self.style.configure("Spike.TButton", background=STEP_COLORS["spike"], foreground="white", padding=(10, 6))
-        self.style.map("Spike.TButton", background=[("active", "#92400e")])
-        self.style.configure("Plot.TButton", background=STEP_COLORS["plot"], foreground="white", padding=(10, 6))
-        self.style.map("Plot.TButton", background=[("active", "#1d4ed8")])
-        self.style.configure("Secondary.TButton", padding=(9, 5))
+        self.style.configure("Panel.TFrame", background=STEP_COLORS["panel"])
+        self.style.configure("Card.TFrame", background=STEP_COLORS["panel_alt"])
+        self.style.configure(
+            "TLabelframe",
+            background=STEP_COLORS["panel"],
+            bordercolor=STEP_COLORS["border"],
+            relief="solid",
+            borderwidth=1,
+        )
+        self.style.configure(
+            "TLabelframe.Label",
+            background=STEP_COLORS["surface"],
+            foreground=STEP_COLORS["text"],
+            font=section_font,
+        )
+        self.style.configure(
+            "Subsection.TLabelframe",
+            background=STEP_COLORS["panel"],
+            bordercolor=STEP_COLORS["border"],
+            relief="solid",
+            borderwidth=1,
+        )
+        self.style.configure(
+            "Subsection.TLabelframe.Label",
+            background=STEP_COLORS["surface"],
+            foreground=STEP_COLORS["muted"],
+            font=subsection_font,
+        )
+        self.style.configure("TLabel", background=STEP_COLORS["surface"], foreground=STEP_COLORS["text"], font=base_font)
+        self.style.configure("Field.TLabel", background=STEP_COLORS["surface"], foreground=STEP_COLORS["text"], font=field_font)
+        self.style.configure("Hint.TLabel", background=STEP_COLORS["surface"], foreground=STEP_COLORS["muted"], font=("Segoe UI", 9))
+        self.style.configure("Status.TLabel", background=STEP_COLORS["surface"], foreground=STEP_COLORS["muted"], font=("Segoe UI", 9))
+        self.style.configure("Title.TLabel", background=STEP_COLORS["surface"], foreground=STEP_COLORS["text"], font=("Segoe UI", 19, "bold"))
+        self.style.configure("Stage.TLabel", background=STEP_COLORS["surface"], foreground=STEP_COLORS["muted"], font=("Segoe UI", 10))
+        self.style.configure("TEntry", fieldbackground=STEP_COLORS["input"], foreground=STEP_COLORS["text"], insertcolor=STEP_COLORS["text"], padding=(6, 4))
+        self.style.map("TEntry", fieldbackground=[("disabled", STEP_COLORS["panel"])], foreground=[("disabled", STEP_COLORS["muted"])])
+        self.style.configure("TCombobox", fieldbackground=STEP_COLORS["input"], background=STEP_COLORS["panel_alt"], foreground=STEP_COLORS["text"], arrowcolor=STEP_COLORS["muted"], padding=(6, 4))
+        self.style.map(
+            "TCombobox",
+            fieldbackground=[("readonly", STEP_COLORS["input"])],
+            selectbackground=[("readonly", STEP_COLORS["input"])],
+            selectforeground=[("readonly", STEP_COLORS["text"])],
+            foreground=[("readonly", STEP_COLORS["text"])],
+        )
+        self.style.configure("TCheckbutton", background=STEP_COLORS["surface"], foreground=STEP_COLORS["text"], font=base_font)
+        self.style.configure("TRadiobutton", background=STEP_COLORS["surface"], foreground=STEP_COLORS["text"], font=base_font)
+        self.style.map("TCheckbutton", background=[("active", STEP_COLORS["surface"])], foreground=[("active", STEP_COLORS["text"])])
+        self.style.map("TRadiobutton", background=[("active", STEP_COLORS["surface"])], foreground=[("active", STEP_COLORS["text"])])
+        self.style.configure("Accent.TButton", background=STEP_COLORS["plot"], foreground=STEP_COLORS["input"], padding=(14, 8), font=("Segoe UI", 10, "bold"))
+        self.style.map("Accent.TButton", background=[("active", STEP_COLORS["plot_active"])])
+        self.style.configure("Raw.TButton", background=STEP_COLORS["raw"], foreground=STEP_COLORS["input"], padding=(11, 7), font=("Segoe UI", 10, "bold"))
+        self.style.map("Raw.TButton", background=[("active", STEP_COLORS["raw_active"])])
+        self.style.configure("Spike.TButton", background=STEP_COLORS["spike"], foreground=STEP_COLORS["input"], padding=(11, 7), font=("Segoe UI", 10, "bold"))
+        self.style.map("Spike.TButton", background=[("active", STEP_COLORS["spike_active"])])
+        self.style.configure("Plot.TButton", background=STEP_COLORS["plot"], foreground=STEP_COLORS["input"], padding=(11, 7), font=("Segoe UI", 10, "bold"))
+        self.style.map("Plot.TButton", background=[("active", STEP_COLORS["plot_active"])])
+        self.style.configure("Secondary.TButton", background=STEP_COLORS["panel_alt"], foreground=STEP_COLORS["text"], padding=(10, 6), bordercolor=STEP_COLORS["border"])
+        self.style.map("Secondary.TButton", background=[("active", STEP_COLORS["border"])], foreground=[("active", STEP_COLORS["text"])])
+        self.style.configure("Vertical.TScrollbar", background=STEP_COLORS["panel_alt"], troughcolor=STEP_COLORS["surface"], bordercolor=STEP_COLORS["border"], arrowcolor=STEP_COLORS["muted"])
         self.style.configure("TNotebook", background=STEP_COLORS["surface"], borderwidth=0)
-        self.style.configure("TNotebook.Tab", padding=(16, 8), font=("Segoe UI", 10, "bold"))
+        self.style.configure("TNotebook.Tab", background=STEP_COLORS["panel"], foreground=STEP_COLORS["muted"], padding=(18, 9), font=("Segoe UI", 10, "bold"))
+        self.style.map(
+            "TNotebook.Tab",
+            background=[("selected", STEP_COLORS["panel_alt"]), ("active", STEP_COLORS["border"])],
+            foreground=[("selected", STEP_COLORS["text"]), ("active", STEP_COLORS["text"])],
+        )
 
     def _build_ui(self) -> None:
         self.root.columnconfigure(0, weight=1)
@@ -256,59 +335,98 @@ class LocustPipelineApp:
         self._build_log()
 
     def _build_top_bar(self) -> None:
-        bar = ttk.Frame(self.root, padding=(12, 12, 12, 4))
+        bar = ttk.Frame(self.root, padding=(16, 14, 16, 6))
         bar.grid(row=0, column=0, sticky="ew")
-        bar.columnconfigure(1, weight=1)
+        bar.columnconfigure(2, weight=1)
 
-        title = ttk.Label(bar, text=APP_NAME, font=("Segoe UI", 16, "bold"))
-        title.grid(row=0, column=0, sticky="w")
-        ttk.Label(bar, textvariable=self.stage_var, style="Hint.TLabel").grid(row=1, column=0, sticky="w", pady=(2, 0))
+        self.logo_image = self._load_logo_image(54)
+        if self.logo_image is not None:
+            tk.Label(
+                bar,
+                image=self.logo_image,
+                bg=STEP_COLORS["surface"],
+                bd=0,
+                highlightthickness=0,
+            ).grid(row=0, column=0, rowspan=2, sticky="w", padx=(0, 12))
+
+        title_block = ttk.Frame(bar)
+        title_block.grid(row=0, column=1, rowspan=2, sticky="w")
+        ttk.Label(title_block, text=APP_SHORT_NAME, style="Title.TLabel").grid(row=0, column=0, sticky="w")
+        ttk.Label(title_block, text=APP_NAME, style="Stage.TLabel").grid(row=1, column=0, sticky="w", pady=(1, 0))
 
         chip_frame = ttk.Frame(bar)
-        chip_frame.grid(row=0, column=1, rowspan=2, sticky="w", padx=24)
+        chip_frame.grid(row=0, column=2, rowspan=2, sticky="w", padx=28)
         self._step_chip(chip_frame, "1 Raw", STEP_COLORS["raw"], 0)
         self._step_chip(chip_frame, "2 Spikes", STEP_COLORS["spike"], 1)
         self._step_chip(chip_frame, "3 Plots", STEP_COLORS["plot"], 2)
 
         ttk.Button(bar, text="Run Full Pipeline", style="Accent.TButton", command=self.run_full_pipeline).grid(
             row=0,
-            column=2,
+            column=3,
             rowspan=2,
             sticky="e",
             padx=(10, 0),
         )
 
+        ttk.Label(bar, textvariable=self.stage_var, style="Stage.TLabel").grid(
+            row=2,
+            column=1,
+            columnspan=3,
+            sticky="w",
+            pady=(8, 0),
+        )
+
+    def _load_logo_image(self, size: int) -> ImageTk.PhotoImage | None:
+        if not APP_ICON.exists():
+            return None
+        try:
+            image = Image.open(APP_ICON).convert("RGBA")
+            image.thumbnail((size, size), Image.Resampling.LANCZOS)
+            return ImageTk.PhotoImage(image)
+        except Exception:
+            return None
+
     def _step_chip(self, parent, text: str, color: str, column: int) -> None:
         chip = tk.Label(
             parent,
             text=text,
-            bg=color,
-            fg="white",
+            bg=STEP_COLORS["panel"],
+            fg=color,
             padx=12,
-            pady=5,
+            pady=6,
             font=("Segoe UI", 9, "bold"),
+            highlightbackground=color,
+            highlightcolor=color,
+            highlightthickness=1,
         )
         chip.grid(row=0, column=column, padx=(0, 8))
 
     def _tab_header(self, parent, row: int, number: str, title: str, color: str) -> None:
-        header = tk.Frame(parent, bg=color, height=42)
-        header.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 12))
-        header.columnconfigure(1, weight=1)
+        header = tk.Frame(
+            parent,
+            bg=STEP_COLORS["panel"],
+            height=52,
+            highlightbackground=STEP_COLORS["border"],
+            highlightthickness=1,
+        )
+        header.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(0, 16))
+        header.columnconfigure(2, weight=1)
+        tk.Frame(header, bg=color, width=5).grid(row=0, column=0, sticky="nsw")
         tk.Label(
             header,
             text=number,
-            bg=color,
-            fg="white",
-            width=4,
-            font=("Segoe UI", 13, "bold"),
-        ).grid(row=0, column=0, sticky="nsw", padx=(0, 8), pady=8)
+            bg=STEP_COLORS["panel"],
+            fg=color,
+            width=3,
+            font=("Segoe UI", 15, "bold"),
+        ).grid(row=0, column=1, sticky="nsw", padx=(14, 8), pady=10)
         tk.Label(
             header,
             text=title,
-            bg=color,
-            fg="white",
-            font=("Segoe UI", 12, "bold"),
-        ).grid(row=0, column=1, sticky="w", pady=8)
+            bg=STEP_COLORS["panel"],
+            fg=STEP_COLORS["text"],
+            font=("Segoe UI", 14, "bold"),
+        ).grid(row=0, column=2, sticky="w", pady=10)
 
     def _on_tab_changed(self, _event=None) -> None:
         current = self.notebook.index(self.notebook.select())
@@ -326,8 +444,21 @@ class LocustPipelineApp:
         frame.columnconfigure(0, weight=1)
         frame.rowconfigure(1, weight=1)
 
-        ttk.Label(frame, textvariable=self.status_var).grid(row=0, column=0, sticky="w")
-        self.log_text = tk.Text(frame, height=5, wrap="word", state="disabled")
+        ttk.Label(frame, textvariable=self.status_var, style="Status.TLabel").grid(row=0, column=0, sticky="w")
+        self.log_text = tk.Text(
+            frame,
+            height=5,
+            wrap="word",
+            state="disabled",
+            bg=STEP_COLORS["terminal"],
+            fg=STEP_COLORS["terminal_text"],
+            insertbackground=STEP_COLORS["terminal_text"],
+            relief="flat",
+            bd=0,
+            padx=10,
+            pady=8,
+            font=("Consolas", 9),
+        )
         scroll = ttk.Scrollbar(frame, orient="vertical", command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=scroll.set)
         self.log_text.grid(row=1, column=0, sticky="nsew")
@@ -335,8 +466,12 @@ class LocustPipelineApp:
 
     def _build_raw_tab(self) -> None:
         frame = self.raw_tab
-        frame.columnconfigure(1, weight=1)
+        frame.columnconfigure(0, weight=1)
         self._tab_header(frame, 0, "1", "Raw to CSV", STEP_COLORS["raw"])
+
+        settings = ttk.LabelFrame(frame, text="Raw conversion settings", padding=12)
+        settings.grid(row=1, column=0, columnspan=3, sticky="ew")
+        settings.columnconfigure(1, weight=1)
 
         self.raw_format_var = tk.StringVar(value="RHS")
         self.raw_input_dir_var = tk.StringVar(value=str(DEFAULT_DATA_DIR))
@@ -348,46 +483,55 @@ class LocustPipelineApp:
         self.raw_continuous_time_var = tk.BooleanVar(value=True)
         self.raw_time_col_var = tk.StringVar(value="time_s")
 
-        row = 1
-        ttk.Label(frame, text="Intan format").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Combobox(frame, textvariable=self.raw_format_var, values=("RHS", "RHD"), width=12, state="readonly").grid(
+        row = 0
+        ttk.Label(settings, text="Intan format").grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Combobox(settings, textvariable=self.raw_format_var, values=("RHS", "RHD"), width=12, state="readonly").grid(
             row=row, column=1, sticky="w", pady=4
         )
 
         row += 1
-        self._path_row(frame, row, "Raw input folder", self.raw_input_dir_var, self._browse_raw_input_dir)
+        self._path_row(settings, row, "Raw input folder", self.raw_input_dir_var, self._browse_raw_input_dir)
         row += 1
-        self._path_row(frame, row, "Output CSV", self.raw_output_csv_var, self._browse_raw_output_csv)
+        self._path_row(settings, row, "Output CSV", self.raw_output_csv_var, self._browse_raw_output_csv)
 
         row += 1
-        ttk.Label(frame, text="Target channels").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(frame, textvariable=self.raw_channels_var).grid(row=row, column=1, sticky="ew", pady=4)
-        ttk.Label(frame, text="Comma-separated; blank means all channels", style="Hint.TLabel").grid(row=row, column=2, sticky="w", padx=8)
+        ttk.Label(settings, text="Target channels").grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Entry(settings, textvariable=self.raw_channels_var).grid(row=row, column=1, sticky="ew", pady=4)
+        ttk.Label(settings, text="Comma-separated; blank means all channels", style="Hint.TLabel").grid(row=row, column=2, sticky="w", padx=8)
 
         row += 1
-        ttk.Label(frame, text="Differential pairs").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(frame, textvariable=self.raw_diff_pairs_var).grid(row=row, column=1, sticky="ew", pady=4)
-        ttk.Label(frame, text="Example: A-008,A-010; A-011,A-012", style="Hint.TLabel").grid(row=row, column=2, sticky="w", padx=8)
+        ttk.Label(settings, text="Differential pairs").grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Entry(settings, textvariable=self.raw_diff_pairs_var).grid(row=row, column=1, sticky="ew", pady=4)
+        ttk.Label(settings, text="Example: A-008,A-010; A-011,A-012", style="Hint.TLabel").grid(row=row, column=2, sticky="w", padx=8)
 
         row += 1
-        ttk.Label(frame, text="Time column").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(frame, textvariable=self.raw_time_col_var, width=18).grid(row=row, column=1, sticky="w", pady=4)
+        ttk.Label(settings, text="Time column").grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Entry(settings, textvariable=self.raw_time_col_var, width=18).grid(row=row, column=1, sticky="w", pady=4)
 
         row += 1
-        ttk.Checkbutton(frame, text="Continuous time across raw files", variable=self.raw_continuous_time_var).grid(
+        ttk.Checkbutton(settings, text="Continuous time across raw files", variable=self.raw_continuous_time_var).grid(
             row=row, column=1, sticky="w", pady=4
         )
 
         row += 1
-        ttk.Button(frame, text="Run Raw Conversion", style="Raw.TButton", command=self.run_raw_conversion).grid(
+        ttk.Button(settings, text="Run Raw Conversion", style="Raw.TButton", command=self.run_raw_conversion).grid(
             row=row, column=1, sticky="w", pady=12
         )
 
     def _build_spike_tab(self) -> None:
         frame = self.spike_tab
-        frame.columnconfigure(1, weight=1)
-        frame.rowconfigure(7, weight=1)
+        frame.columnconfigure(0, weight=1)
+        frame.rowconfigure(2, weight=1)
         self._tab_header(frame, 0, "2", "Spike counts", STEP_COLORS["spike"])
+
+        settings = ttk.LabelFrame(frame, text="Spike-count settings", padding=12)
+        settings.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 10))
+        settings.columnconfigure(1, weight=1)
+
+        order_box = ttk.LabelFrame(frame, text="Recording order and epoch labels", padding=12)
+        order_box.grid(row=2, column=0, columnspan=3, sticky="nsew")
+        order_box.columnconfigure(0, weight=1)
+        order_box.rowconfigure(1, weight=1)
 
         self.spike_csv_dir_var = tk.StringVar(value=str(DEFAULT_DATA_DIR))
         self.spike_glob_var = tk.StringVar(value="*.csv")
@@ -398,23 +542,23 @@ class LocustPipelineApp:
         )
         self.selected_epoch_var = tk.StringVar(value="Baseline")
 
-        row = 1
-        self._path_row(frame, row, "CSV folder", self.spike_csv_dir_var, self._browse_spike_csv_dir)
+        row = 0
+        self._path_row(settings, row, "CSV folder", self.spike_csv_dir_var, self._browse_spike_csv_dir)
         row += 1
-        ttk.Label(frame, text="CSV pattern").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(frame, textvariable=self.spike_glob_var, width=18).grid(row=row, column=1, sticky="w", pady=4)
-        ttk.Button(frame, text="Refresh Files", style="Secondary.TButton", command=self.refresh_spike_files).grid(row=row, column=2, sticky="w", padx=8)
+        ttk.Label(settings, text="CSV pattern").grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Entry(settings, textvariable=self.spike_glob_var, width=18).grid(row=row, column=1, sticky="w", pady=4)
+        ttk.Button(settings, text="Refresh Files", style="Secondary.TButton", command=self.refresh_spike_files).grid(row=row, column=2, sticky="w", padx=8)
 
         row += 1
-        ttk.Label(frame, text="Spike-count window").grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Label(settings, text="Spike-count window").grid(row=row, column=0, sticky="w", pady=4)
         ttk.Combobox(
-            frame,
+            settings,
             textvariable=self.spike_window_var,
             values=("30 sec", "1 min", "2 min", "3 min", "4 min", "5 min", "10 min"),
             width=12,
             state="readonly",
         ).grid(row=row, column=1, sticky="w", pady=4)
-        ttk.Label(frame, text="Use 30 sec here if you want true 30 sec plots later.", style="Hint.TLabel").grid(
+        ttk.Label(settings, text="Use 30 sec here if you want true 30 sec plots later.", style="Hint.TLabel").grid(
             row=row,
             column=2,
             sticky="w",
@@ -422,8 +566,8 @@ class LocustPipelineApp:
         )
 
         row += 1
-        ttk.Label(frame, text="Spike polarity").grid(row=row, column=0, sticky="w", pady=4)
-        polarity_controls = ttk.Frame(frame)
+        ttk.Label(settings, text="Spike polarity").grid(row=row, column=0, sticky="w", pady=4)
+        polarity_controls = ttk.Frame(settings)
         polarity_controls.grid(row=row, column=1, columnspan=2, sticky="w", pady=4)
         ttk.Radiobutton(
             polarity_controls,
@@ -445,11 +589,10 @@ class LocustPipelineApp:
         ).pack(side="left")
 
         row += 1
-        self._path_row(frame, row, "Spike output folder", self.spike_out_dir_var, self._browse_spike_out_dir)
+        self._path_row(settings, row, "Spike output folder", self.spike_out_dir_var, self._browse_spike_out_dir)
 
-        row += 1
-        controls = ttk.Frame(frame)
-        controls.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(8, 4))
+        controls = ttk.Frame(order_box)
+        controls.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
         ttk.Button(controls, text="Move Up", style="Secondary.TButton", command=lambda: self.move_recording(-1)).pack(side="left")
         ttk.Button(controls, text="Move Down", style="Secondary.TButton", command=lambda: self.move_recording(1)).pack(side="left", padx=6)
         ttk.Label(controls, text="Selected label").pack(side="left", padx=(16, 4))
@@ -461,21 +604,31 @@ class LocustPipelineApp:
         ).pack(side="left")
         ttk.Button(controls, text="Apply Label to Selection", style="Secondary.TButton", command=self.apply_epoch_label).pack(side="left", padx=6)
 
-        row += 1
-        list_frame = ttk.Frame(frame)
-        list_frame.grid(row=row, column=0, columnspan=3, sticky="nsew")
+        list_frame = ttk.Frame(order_box)
+        list_frame.grid(row=1, column=0, columnspan=3, sticky="nsew")
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
         self.recording_listbox = tk.Listbox(list_frame, height=15, exportselection=False, selectmode="extended")
+        self.recording_listbox.configure(
+            bg=STEP_COLORS["input"],
+            fg=STEP_COLORS["text"],
+            selectbackground=STEP_COLORS["plot"],
+            selectforeground=STEP_COLORS["input"],
+            relief="flat",
+            highlightbackground=STEP_COLORS["border"],
+            highlightcolor=STEP_COLORS["plot"],
+            highlightthickness=1,
+            activestyle="none",
+            font=("Consolas", 10),
+        )
         self.recording_listbox.bind("<<ListboxSelect>>", self.on_recording_select)
         rec_scroll = ttk.Scrollbar(list_frame, orient="vertical", command=self.recording_listbox.yview)
         self.recording_listbox.configure(yscrollcommand=rec_scroll.set)
         self.recording_listbox.grid(row=0, column=0, sticky="nsew")
         rec_scroll.grid(row=0, column=1, sticky="ns")
 
-        row += 1
-        run_controls = ttk.Frame(frame)
-        run_controls.grid(row=row, column=1, sticky="w", pady=12)
+        run_controls = ttk.Frame(order_box)
+        run_controls.grid(row=2, column=0, sticky="w", pady=(12, 0))
         ttk.Button(run_controls, text="Run Spike Counting", style="Spike.TButton", command=self.run_spike_counting).pack(side="left")
         ttk.Button(
             run_controls,
@@ -522,8 +675,8 @@ class LocustPipelineApp:
         self.plot_id_cols_var = tk.StringVar(value="channel")
         self.plot_group_col_var = tk.StringVar(value="")
         self.plot_time_course_var = tk.BooleanVar(value=True)
-        self.continuous_plot_title_var = tk.StringVar(value="Single Electrode - Galvanostatic (16/06/26)")
-        self.continuous_boundary_var = tk.StringVar(value="20 min (-200nA)")
+        self.continuous_plot_title_var = tk.StringVar(value="")
+        self.continuous_boundary_var = tk.StringVar(value="")
         self.continuous_y_top_var = tk.StringVar(value="")
         self.continuous_trace_color_var = tk.StringVar(value="tab:blue")
         self.continuous_marker_var = tk.StringVar(value="o")
@@ -533,13 +686,14 @@ class LocustPipelineApp:
         self.continuous_dpi_var = tk.StringVar(value="200")
         self.continuous_max_x_ticks_var = tk.StringVar(value="24")
         self.continuous_plot_bin_var = tk.StringVar(value="1 min")
+        self.continuous_include_legend_var = tk.BooleanVar(value=True)
         self.epoch_title_vars = {
-            key: tk.StringVar(value=default)
+            key: tk.StringVar(value="")
             for key, _label, default in EPOCH_TITLE_FIELDS
         }
         self.perfusion_title_var = self.epoch_title_vars["perfusion"]
         self.perfusion_substance_var = tk.StringVar(value="")
-        self.perfusion_concentration_var = tk.StringVar(value="1mM")
+        self.perfusion_concentration_var = tk.StringVar(value="")
 
         self.phase_baseline_var = tk.BooleanVar(value=True)
         self.phase_stim_var = tk.BooleanVar(value=True)
@@ -548,7 +702,9 @@ class LocustPipelineApp:
         self.comp_stim_var = tk.BooleanVar(value=True)
         self.comp_post_var = tk.BooleanVar(value=True)
         self.pool_percent_change_var = tk.BooleanVar(value=False)
-        self.pooled_percent_title_var = tk.StringVar(value="Percentage Change from Baseline")
+        self.middle_phase_split_var = tk.StringVar(value="Whole")
+        self.percent_show_channel_labels_var = tk.BooleanVar(value=True)
+        self.pooled_percent_title_var = tk.StringVar(value="")
         self.percent_part_titles: dict[str, str] = {}
         self.percent_part_titles_summary_var = tk.StringVar(value="Default non-pooled titles")
 
@@ -557,47 +713,7 @@ class LocustPipelineApp:
         row += 1
         self._path_row(frame, row, "Plot output folder", self.plot_out_dir_var, self._browse_plot_out_dir)
 
-        row += 1
-        epoch_box = ttk.LabelFrame(frame, text="Epoch display titles", padding=10)
-        epoch_box.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(8, 4))
-        epoch_box.columnconfigure(1, weight=1)
-        epoch_box.columnconfigure(3, weight=1)
-        for index, (key, label, _default) in enumerate(EPOCH_TITLE_FIELDS):
-            field_row = index // 2
-            field_col = (index % 2) * 2
-            ttk.Label(epoch_box, text=label).grid(row=field_row, column=field_col, sticky="w", pady=4)
-            ttk.Entry(epoch_box, textvariable=self.epoch_title_vars[key], width=26).grid(
-                row=field_row,
-                column=field_col + 1,
-                sticky="ew",
-                padx=(8, 20 if field_col == 0 else 0),
-                pady=4,
-            )
-
-        perfusion_row = (len(EPOCH_TITLE_FIELDS) + 1) // 2
-        ttk.Label(epoch_box, text="Perfusion substance").grid(row=perfusion_row, column=0, sticky="w", pady=(10, 4))
-        ttk.Entry(epoch_box, textvariable=self.perfusion_substance_var, width=18).grid(
-            row=perfusion_row,
-            column=1,
-            sticky="w",
-            padx=(8, 20),
-            pady=(10, 4),
-        )
-        ttk.Label(epoch_box, text="Perfusion legend concentration").grid(
-            row=perfusion_row,
-            column=2,
-            sticky="w",
-            pady=(10, 4),
-        )
-        ttk.Combobox(
-            epoch_box,
-            textvariable=self.perfusion_concentration_var,
-            values=PERFUSION_CONCENTRATIONS,
-            width=10,
-        ).grid(row=perfusion_row, column=3, sticky="w", padx=(8, 0), pady=(10, 4))
-
-        row += 1
-        selector = ttk.LabelFrame(frame, text="Plot and analysis tools", padding=10)
+        selector = ttk.LabelFrame(frame, text="Plot and analysis tools", padding=12)
         selector.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(12, 8))
         selector.columnconfigure(0, weight=1)
         selector.columnconfigure(1, weight=1)
@@ -653,11 +769,11 @@ class LocustPipelineApp:
     ) -> None:
         card = tk.Frame(
             parent,
-            bg="white",
+            bg=STEP_COLORS["panel_alt"],
             highlightbackground=STEP_COLORS["border"],
             highlightthickness=1,
-            padx=12,
-            pady=10,
+            padx=14,
+            pady=12,
             cursor="hand2",
         )
         card.grid(row=row, column=column, sticky="ew", padx=(0, 8) if column == 0 else (8, 0), pady=2)
@@ -665,15 +781,16 @@ class LocustPipelineApp:
 
         accent = tk.Frame(card, bg=color, width=6)
         accent.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(0, 10))
-        title_label = tk.Label(card, text=title, bg="white", fg=STEP_COLORS["text"], font=("Segoe UI", 10, "bold"))
+        title_label = tk.Label(card, text=title, bg=STEP_COLORS["panel_alt"], fg=STEP_COLORS["text"], font=("Segoe UI", 11, "bold"))
         title_label.grid(row=0, column=1, sticky="w")
         desc_label = tk.Label(
             card,
             text=description,
-            bg="white",
+            bg=STEP_COLORS["panel_alt"],
             fg=STEP_COLORS["muted"],
             justify="left",
             wraplength=430,
+            font=("Segoe UI", 9),
         )
         desc_label.grid(row=1, column=1, sticky="w", pady=(3, 0))
 
@@ -740,18 +857,18 @@ class LocustPipelineApp:
         return "break"
 
     def _build_baseline_post_plot_panel(self, parent):
-        panel = ttk.LabelFrame(parent, text="Percentage Change from Baseline parameters", padding=10)
+        panel = ttk.LabelFrame(parent, text="Percentage Change from Baseline parameters", padding=12)
         panel.columnconfigure(0, weight=1)
 
         row = 0
-        phase_box = ttk.LabelFrame(panel, text="Recorded phases", padding=10)
+        phase_box = ttk.LabelFrame(panel, text="Recorded phases", padding=10, style="Subsection.TLabelframe")
         phase_box.grid(row=row, column=0, sticky="ew", pady=(0, 6))
         ttk.Checkbutton(phase_box, text="Baseline", variable=self.phase_baseline_var).pack(side="left", padx=(0, 16))
         ttk.Checkbutton(phase_box, text="Stimulation", variable=self.phase_stim_var).pack(side="left", padx=(0, 16))
         ttk.Checkbutton(phase_box, text="Post", variable=self.phase_post_var).pack(side="left", padx=(0, 16))
 
         row += 1
-        comp_box = ttk.LabelFrame(panel, text="Comparisons to output", padding=10)
+        comp_box = ttk.LabelFrame(panel, text="Comparisons to output", padding=10, style="Subsection.TLabelframe")
         comp_box.grid(row=row, column=0, sticky="ew", pady=6)
         ttk.Checkbutton(comp_box, text="Baseline halves", variable=self.comp_baseline_var).pack(side="left", padx=(0, 16))
         ttk.Checkbutton(comp_box, text="Baseline vs stimulation", variable=self.comp_stim_var).pack(side="left", padx=(0, 16))
@@ -770,7 +887,31 @@ class LocustPipelineApp:
         )
 
         row += 1
-        title_box = ttk.LabelFrame(panel, text="Percent-change plot titles", padding=10)
+        split_box = ttk.LabelFrame(panel, text="Middle phase comparison", padding=10, style="Subsection.TLabelframe")
+        split_box.grid(row=row, column=0, sticky="ew", pady=6)
+        ttk.Label(split_box, text="Compare Baseline to").pack(side="left", padx=(0, 8))
+        ttk.Combobox(
+            split_box,
+            textvariable=self.middle_phase_split_var,
+            values=("Whole", "Halves", "Thirds"),
+            width=10,
+            state="readonly",
+        ).pack(side="left")
+
+        row += 1
+        ttk.Checkbutton(
+            panel,
+            text="Show channel name on Baseline/change plots",
+            variable=self.percent_show_channel_labels_var,
+        ).grid(
+            row=row,
+            column=0,
+            sticky="w",
+            pady=6,
+        )
+
+        row += 1
+        title_box = ttk.LabelFrame(panel, text="Percent-change plot titles", padding=10, style="Subsection.TLabelframe")
         title_box.grid(row=row, column=0, sticky="ew", pady=6)
         title_box.columnconfigure(1, weight=1)
         ttk.Label(title_box, text="Pooled plot title").grid(row=0, column=0, sticky="w", pady=4)
@@ -810,8 +951,48 @@ class LocustPipelineApp:
         )
         return panel
 
+    def _build_epoch_title_box(self, parent, row: int, columnspan: int = 4) -> int:
+        epoch_box = ttk.LabelFrame(parent, text="Epoch display titles", padding=10, style="Subsection.TLabelframe")
+        epoch_box.grid(row=row, column=0, columnspan=columnspan, sticky="ew", pady=(8, 6))
+        epoch_box.columnconfigure(1, weight=1)
+        epoch_box.columnconfigure(3, weight=1)
+        for index, (key, label, _default) in enumerate(EPOCH_TITLE_FIELDS):
+            field_row = index // 2
+            field_col = (index % 2) * 2
+            ttk.Label(epoch_box, text=label).grid(row=field_row, column=field_col, sticky="w", pady=4)
+            ttk.Entry(epoch_box, textvariable=self.epoch_title_vars[key], width=26).grid(
+                row=field_row,
+                column=field_col + 1,
+                sticky="ew",
+                padx=(8, 20 if field_col == 0 else 0),
+                pady=4,
+            )
+
+        perfusion_row = (len(EPOCH_TITLE_FIELDS) + 1) // 2
+        ttk.Label(epoch_box, text="Perfusion substance").grid(row=perfusion_row, column=0, sticky="w", pady=(10, 4))
+        ttk.Entry(epoch_box, textvariable=self.perfusion_substance_var, width=18).grid(
+            row=perfusion_row,
+            column=1,
+            sticky="w",
+            padx=(8, 20),
+            pady=(10, 4),
+        )
+        ttk.Label(epoch_box, text="Perfusion legend concentration").grid(
+            row=perfusion_row,
+            column=2,
+            sticky="w",
+            pady=(10, 4),
+        )
+        ttk.Combobox(
+            epoch_box,
+            textvariable=self.perfusion_concentration_var,
+            values=PERFUSION_CONCENTRATIONS,
+            width=10,
+        ).grid(row=perfusion_row, column=3, sticky="w", padx=(8, 0), pady=(10, 4))
+        return row + 1
+
     def _build_continuous_spike_plot_panel(self, parent):
-        panel = ttk.LabelFrame(parent, text="Continuous spike-count plot parameters", padding=10)
+        panel = ttk.LabelFrame(parent, text="Continuous spike-count plot parameters", padding=12)
         panel.columnconfigure(1, weight=1)
         panel.columnconfigure(3, weight=1)
 
@@ -825,6 +1006,7 @@ class LocustPipelineApp:
         ttk.Label(panel, text="Plot title").grid(row=row, column=0, sticky="w", pady=4)
         ttk.Entry(panel, textvariable=self.continuous_plot_title_var).grid(row=row, column=1, columnspan=3, sticky="ew", pady=4)
         row += 1
+        row = self._build_epoch_title_box(panel, row)
         ttk.Label(panel, text="Spike-count bin").grid(row=row, column=0, sticky="w", pady=4)
         ttk.Combobox(
             panel,
@@ -875,6 +1057,12 @@ class LocustPipelineApp:
             pady=4,
         )
         row += 1
+        ttk.Checkbutton(
+            panel,
+            text="Include legend",
+            variable=self.continuous_include_legend_var,
+        ).grid(row=row, column=1, sticky="w", pady=4)
+        row += 1
         ttk.Button(panel, text="Run Plotting", style="Plot.TButton", command=self.run_continuous_spike_plot).grid(
             row=row,
             column=1,
@@ -891,17 +1079,78 @@ class LocustPipelineApp:
     def log(self, text: str) -> None:
         self.log_queue.put(text)
 
+    def _append_to_text_widget(self, widget: tk.Text | None, text: str) -> None:
+        if widget is None:
+            return
+        with contextlib.suppress(tk.TclError):
+            widget.configure(state="normal")
+            widget.insert("end", text)
+            widget.see("end")
+            widget.configure(state="disabled")
+
     def _drain_log_queue(self) -> None:
         try:
             while True:
                 text = self.log_queue.get_nowait()
-                self.log_text.configure(state="normal")
-                self.log_text.insert("end", text)
-                self.log_text.see("end")
-                self.log_text.configure(state="disabled")
+                self._append_to_text_widget(self.log_text, text)
+                self._append_to_text_widget(self.processing_text, text)
         except queue.Empty:
             pass
         self.root.after(100, self._drain_log_queue)
+
+    def _show_processing_terminal(self, title: str) -> None:
+        self._close_processing_terminal()
+        window = tk.Toplevel(self.root)
+        window.title(f"{APP_SHORT_NAME} processing")
+        window.configure(bg=STEP_COLORS["terminal"])
+        window.geometry("900x460")
+        window.minsize(700, 320)
+        window.transient(self.root)
+        if APP_ICON.exists():
+            with contextlib.suppress(tk.TclError):
+                window.iconbitmap(str(APP_ICON))
+
+        window.columnconfigure(0, weight=1)
+        window.rowconfigure(1, weight=1)
+        tk.Label(
+            window,
+            text=f"Processing: {title}",
+            bg=STEP_COLORS["terminal"],
+            fg=STEP_COLORS["text"],
+            font=("Segoe UI", 13, "bold"),
+            padx=14,
+            pady=10,
+            anchor="w",
+        ).grid(row=0, column=0, columnspan=2, sticky="ew")
+
+        text = tk.Text(
+            window,
+            wrap="word",
+            state="disabled",
+            bg=STEP_COLORS["terminal"],
+            fg=STEP_COLORS["terminal_text"],
+            insertbackground=STEP_COLORS["terminal_text"],
+            relief="flat",
+            bd=0,
+            padx=14,
+            pady=10,
+            font=("Consolas", 10),
+        )
+        scroll = ttk.Scrollbar(window, orient="vertical", command=text.yview)
+        text.configure(yscrollcommand=scroll.set)
+        text.grid(row=1, column=0, sticky="nsew", padx=(10, 0), pady=(0, 10))
+        scroll.grid(row=1, column=1, sticky="ns", padx=(0, 10), pady=(0, 10))
+
+        self.processing_window = window
+        self.processing_text = text
+
+    def _close_processing_terminal(self) -> None:
+        window = self.processing_window
+        self.processing_window = None
+        self.processing_text = None
+        if window is not None:
+            with contextlib.suppress(tk.TclError):
+                window.destroy()
 
     def run_background(self, title: str, func, on_success=None) -> None:
         if self.worker_thread and self.worker_thread.is_alive():
@@ -928,10 +1177,12 @@ class LocustPipelineApp:
                     self.log_queue.put(f"--- {title} finished ---\n")
                     if on_success:
                         on_success(result)
+                    self.root.after(900, self._close_processing_terminal)
 
             self.root.after(0, finish)
 
         self.status_var.set(f"{title} running...")
+        self._show_processing_terminal(title)
         self.worker_thread = threading.Thread(target=worker, daemon=True)
         self.worker_thread.start()
 
@@ -1003,8 +1254,8 @@ class LocustPipelineApp:
                 i - 1,
                 background=self._epoch_row_color(label),
                 foreground=STEP_COLORS["text"],
-                selectbackground="#1d4ed8",
-                selectforeground="white",
+                selectbackground=STEP_COLORS["plot"],
+                selectforeground=STEP_COLORS["input"],
             )
         if selected_indices:
             self.recording_listbox.selection_clear(0, "end")
@@ -1087,7 +1338,7 @@ class LocustPipelineApp:
         return " ".join(f'"{part}"' if " " in part else part for part in cmd)
 
     def _perfusion_title(self) -> str:
-        return self.perfusion_title_var.get().strip() or "Perfusion"
+        return self.perfusion_title_var.get().strip()
 
     def _perfusion_legend_label(self) -> str:
         substance = self.perfusion_substance_var.get().strip()
@@ -1105,7 +1356,7 @@ class LocustPipelineApp:
     def _epoch_title_for_label(self, label: object) -> str:
         titles = self._epoch_title_mapping()
         if contains_perfusion_label(label):
-            return titles.get("perfusion") or self._perfusion_title()
+            return titles.get("perfusion") or self._perfusion_title() or str(label).strip()
 
         label_text = str(label).strip()
         label_norm = normalise_epoch_text(label_text)
@@ -1435,13 +1686,18 @@ class LocustPipelineApp:
     def _title_dialog(self, specs: list[dict[str, str]]) -> dict[str, str] | None:
         dialog = tk.Toplevel(self.root)
         dialog.title("Non-pooled percent-change plot titles")
+        dialog.configure(bg=STEP_COLORS["surface"])
         dialog.transient(self.root)
         dialog.grab_set()
         dialog.columnconfigure(0, weight=1)
+        if APP_ICON.exists():
+            with contextlib.suppress(tk.TclError):
+                dialog.iconbitmap(str(APP_ICON))
 
         ttk.Label(
             dialog,
             text="Set the title for each non-pooled percent-change plot.",
+            style="Stage.TLabel",
             padding=(12, 12, 12, 4),
         ).grid(row=0, column=0, sticky="w")
 
@@ -1533,6 +1789,8 @@ class LocustPipelineApp:
             ",".join(phases),
             "--comparisons",
             ",".join(comparisons),
+            "--middle-phase-split",
+            self.middle_phase_split_var.get().strip().lower() or "whole",
         ]
         out_dir = self.plot_out_dir_var.get().strip()
         if out_dir:
@@ -1549,6 +1807,8 @@ class LocustPipelineApp:
             cmd.extend(["--percent-part-titles", json.dumps(self.percent_part_titles)])
         if not self.plot_time_course_var.get():
             cmd.append("--no-time-course")
+        if not self.percent_show_channel_labels_var.get():
+            cmd.append("--no-channel-labels")
         perfusion_title = self._perfusion_title()
         perfusion_label = self._perfusion_legend_label()
         if perfusion_title:
@@ -1601,7 +1861,7 @@ class LocustPipelineApp:
             str(CSV_SPIKE_PLOT_SCRIPT),
             input_path,
             "--title",
-            self.continuous_plot_title_var.get().strip() or "Single Electrode - Galvanostatic (16/06/26)",
+            self.continuous_plot_title_var.get().strip(),
             "--boundary-description",
             self.continuous_boundary_var.get().strip(),
             "--no-prompt-titles",
@@ -1631,6 +1891,8 @@ class LocustPipelineApp:
         epoch_titles = self._epoch_title_mapping()
         if epoch_titles:
             cmd.extend(["--epoch-titles", json.dumps(epoch_titles)])
+        if not self.continuous_include_legend_var.get():
+            cmd.append("--no-legend")
         out_dir = self.plot_out_dir_var.get().strip()
         if out_dir:
             cmd.extend(["--out-dir", out_dir])
