@@ -1999,10 +1999,8 @@ class LocustPipelineApp:
             return None
         return indices[0]
 
-<<<<<<< Updated upstream:Apps/SPIE/locust_lfp_gui.py
     def _selected_any_recording_indices(self) -> list[int]:
         return self._selected_recording_indices() or self._selected_lfp_recording_indices()
-=======
     def _selected_recording_indices(self) -> tuple[int, ...]:
         return tuple(int(i) for i in self.recording_listbox.curselection())
 
@@ -2014,39 +2012,21 @@ class LocustPipelineApp:
                 self.selection_count_var.set(f"{len(indices)} of {total} selected")
             else:
                 self.selection_count_var.set(f"0 of {total} selected")
->>>>>>> Stashed changes:locust_lfp_gui.py
 
     def on_recording_select(self, _event=None) -> None:
         indices = self._selected_recording_indices()
         if not indices:
             self._update_selection_label()
             return
-<<<<<<< Updated upstream:Apps/SPIE/locust_lfp_gui.py
-        labels = [(self.recordings[index].get("epoch_label") or self.recordings[index].get("label", "")).strip() for index in indices]
-        first_label = labels[0]
-        self.selected_epoch_var.set(first_label if all(label == first_label for label in labels) else "")
-        prep_values = [str(self.recordings[index].get("preparation_id", "")).strip() for index in indices]
-        if hasattr(self, "lfp_preparation_id_var") and prep_values and all(value == prep_values[0] for value in prep_values):
-            self.lfp_preparation_id_var.set(prep_values[0] or self.lfp_preparation_id_var.get())
-=======
         self._update_selection_label()
         first_label = self.recordings[indices[0]]["label"] or ""
         all_same = all(self.recordings[i]["label"] == first_label for i in indices)
         self.selected_epoch_var.set(first_label if all_same else "")
->>>>>>> Stashed changes:locust_lfp_gui.py
 
     def apply_epoch_label(self) -> None:
         indices = self._selected_any_recording_indices()
         if not indices:
             return
-<<<<<<< Updated upstream:Apps/SPIE/locust_lfp_gui.py
-        for index in indices:
-            label = self.selected_epoch_var.get().strip()
-            self.recordings[index]["label"] = label
-            self.recordings[index]["epoch_label"] = label
-            self.recordings[index]["phase"] = self._phase_from_label(label)
-        self._refresh_recording_listbox(indices)
-=======
         label = self.selected_epoch_var.get().strip()
         for idx in indices:
             self.recordings[idx]["label"] = label
@@ -2062,7 +2042,6 @@ class LocustPipelineApp:
     def deselect_all_recordings(self) -> None:
         self.recording_listbox.selection_clear(0, "end")
         self.on_recording_select()
->>>>>>> Stashed changes:locust_lfp_gui.py
 
     def _phase_from_label(self, label: str) -> str:
         text = normalise_epoch_text(label)
@@ -2158,7 +2137,6 @@ class LocustPipelineApp:
         anchor = first + delta
         if anchor < 0 or anchor > len(remaining):
             return
-<<<<<<< Updated upstream:Apps/SPIE/locust_lfp_gui.py
         if delta > 0 and indices[-1] == len(self.recordings) - 1:
             return
 
@@ -2183,7 +2161,6 @@ class LocustPipelineApp:
         for order, item in enumerate(self.recordings, start=1):
             item["recording_order"] = str(order)
         self._refresh_recording_listbox(sorted(selected))
-=======
         for rec in block:
             remaining.insert(anchor, rec)
         self.recordings = remaining
@@ -2192,7 +2169,6 @@ class LocustPipelineApp:
         new_last = anchor + len(block) - 1
         self.recording_listbox.selection_set(new_first, new_last)
         self._update_selection_label()
->>>>>>> Stashed changes:locust_lfp_gui.py
 
     def _format_command(self, cmd: list[str]) -> str:
         return " ".join(f'"{part}"' if " " in part else part for part in cmd)
