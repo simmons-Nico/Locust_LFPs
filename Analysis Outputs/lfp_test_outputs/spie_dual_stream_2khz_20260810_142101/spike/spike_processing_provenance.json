@@ -1,0 +1,86 @@
+{
+  "pipeline": "Spike Count Multiple CSVs ordered.py::process_csvs",
+  "script_path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Spike Count Multiple CSVs ordered.py",
+  "script_sha256": "1a5d9b7cb50a5e9d496e1336f8bcbe574b5705a44153798d11a3c734a408c8de",
+  "script_settings": {
+    "HP_SPIKE_BAND": [
+      300.0,
+      5000.0
+    ],
+    "SPIKE_Z_THR": 6.0,
+    "POLARITY": "both",
+    "REFRACTORY_MS": 1.0,
+    "AMP_MIN_UV": 40.0,
+    "AMP_MAX_UV": 700.0,
+    "W_MIN_MS": null,
+    "W_MAX_MS": null,
+    "TIME_COL": "time_s",
+    "MARKER_COLUMN_TOKENS": [
+      "marker",
+      "ttl",
+      "trigger",
+      "event",
+      "digital",
+      "dig",
+      "din",
+      "dout",
+      "stim",
+      "sync"
+    ]
+  },
+  "ordered_recordings": [
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+      "mtime_ns": 1769878213772322500,
+      "size_bytes": 383844831
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+      "mtime_ns": 1769878113397568800,
+      "size_bytes": 412874565
+    }
+  ],
+  "ordered_recording_list": [
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv"
+  ],
+  "labels_by_path": {
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv": "Baseline",
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv": "Post -0.9V"
+  },
+  "recording_metadata": [
+    {
+      "source_file": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+      "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+      "recording_order": "1",
+      "segment_id": "baseline_260131",
+      "recording_id": "baseline_260131",
+      "epoch_label": "Baseline",
+      "label": "Baseline",
+      "phase": "baseline",
+      "preparation_id": "260131",
+      "channel": "B-000",
+      "reference_scheme": "none",
+      "signal_unit": "uV"
+    },
+    {
+      "source_file": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+      "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+      "recording_order": "2",
+      "segment_id": "post_260131",
+      "recording_id": "post_260131",
+      "epoch_label": "Post -0.9V",
+      "label": "Post -0.9V",
+      "phase": "post",
+      "preparation_id": "260131",
+      "channel": "B-000",
+      "reference_scheme": "none",
+      "signal_unit": "uV"
+    }
+  ],
+  "window_sec": 60.0,
+  "polarity": "both",
+  "export_spike_events": true,
+  "spike_count_csv": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\spike\\ALL_RECORDINGS__spike_counts_per_min.csv",
+  "spike_events_csv": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\spike\\spike_events.csv"
+}

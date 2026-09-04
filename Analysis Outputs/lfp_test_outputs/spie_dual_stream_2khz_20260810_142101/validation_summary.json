@@ -1,0 +1,206 @@
+{
+  "out_root": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101",
+  "timings": {
+    "spike_pipeline_s": 13.19,
+    "lfp_features_s": 55.503,
+    "coupling_s": 112.856,
+    "plotting_s": 125.727,
+    "plotting_rerun_after_axis_fix_s": 123.026
+  },
+  "workload": {
+    "preparations": 1,
+    "segments": 2,
+    "lfp_channels": 1,
+    "spike_channels": 1,
+    "channel_pairs": 2,
+    "windows": 33,
+    "pair_windows": 33,
+    "phase_bands": 4,
+    "surrogates": 5,
+    "estimated_ppc_computations": 792,
+    "estimated_sfc_rows": 8448,
+    "pairing_mode": "same_channel",
+    "segment_rows": [
+      {
+        "segment_id": "baseline_260131",
+        "lfp_channels": 1,
+        "spike_channels": 1,
+        "channel_pairs": 1,
+        "windows_per_pair": 16
+      },
+      {
+        "segment_id": "post_260131",
+        "lfp_channels": 1,
+        "spike_channels": 1,
+        "channel_pairs": 1,
+        "windows_per_pair": 17
+      }
+    ]
+  },
+  "source_files": [
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv"
+  ],
+  "spike_count_rows": 31,
+  "spike_event_rows": 19842,
+  "spike_events_by_segment_channel": {
+    "('baseline_260131', 'B-000')": 15211,
+    "('post_260131', 'B-000')": 4631
+  },
+  "previous_spike_events_by_segment_channel": {
+    "('baseline_260131', 'B-000')": 15211,
+    "('post_260131', 'B-000')": 4631
+  },
+  "spike_time_max_abs_difference_vs_previous_s": 0.0,
+  "spike_source_sampling_rate_hz_unique": [
+    20000.00000502041
+  ],
+  "lfp_feature_rows": 33,
+  "lfp_valid_rows": 33,
+  "lfp_qc_rows": 33,
+  "lfp_fs_used_hz_unique": [
+    2000.0
+  ],
+  "psd_max_frequency_hz": 300.0,
+  "power_0p5_100_vs_previous_500hz": {
+    "matched_windows": 33,
+    "median_difference_db_new_minus_old": 0.09616955576147877,
+    "median_abs_difference_db": 0.18858940659213952,
+    "p90_abs_difference_db": 0.41470158981690747
+  },
+  "power_100_300_finite_windows": 33,
+  "ppc_rows": 132,
+  "ppc_valid_rows": 132,
+  "ppc_range": [
+    -0.0057478270177752,
+    0.0949263061323505
+  ],
+  "sfc_rows": 8448,
+  "sfc_max_frequency_hz": 300.0,
+  "aligned_matched_rows": 33,
+  "aligned_max_error_s": 0.0,
+  "no_cross_match_between_phase_csvs": true,
+  "primary_aligned_plot": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\lfp\\lfp_plots\\PRIMARY_spike_lfp_aligned_spike_rate_lfp_power.png",
+  "primary_aligned_csv": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\lfp\\lfp_plots\\PRIMARY_spike_lfp_aligned_windows.csv",
+  "primary_ppc_plot": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\lfp\\spike_lfp_coupling\\PRIMARY_spike_lfp_ppc_phase_coupling.png",
+  "plot_count": 32,
+  "lfp_stream_preprocessing_count": 2,
+  "lfp_stream_first_filter": {
+    "stream_role": "LFP",
+    "source_fs_hz": 20000.00000502041,
+    "target_fs_hz": 2000.0,
+    "finite_continuous_runs": 1,
+    "input_samples": 18692864,
+    "anti_alias_passband_hz": 300.0,
+    "anti_alias_stopband_hz": 850.0,
+    "never_filter_or_resample_across": [
+      "NaN/non-finite samples",
+      "timestamp gaps",
+      "timestamp resets",
+      "separate recording CSVs"
+    ],
+    "method": "scipy.signal.resample_poly with explicit Kaiser-windowed linear-phase FIR anti-alias filter",
+    "filter_family": "FIR Kaiser low-pass",
+    "passband_edge_hz": 300.0,
+    "stopband_edge_hz": 850.0,
+    "transition_width_hz": 550.0,
+    "requested_passband_ripple_db": 0.1,
+    "requested_stopband_attenuation_db": 80.0,
+    "measured_passband_ripple_db": 0.0014179240152358522,
+    "measured_stopband_attenuation_db": 81.10870521673789,
+    "numtaps": 185,
+    "kaiser_beta": 7.85726,
+    "cutoff_hz": 575.0,
+    "coeff_sha256": "5d42e7581cde599af01c11d2d890ee8cd1d24ad3b979fdf94c5389f7d53a25a4",
+    "group_delay_input_samples": 92.0,
+    "group_delay_s": 0.0045999999988453055,
+    "delay_compensation": "linear-phase delay compensated by resample_poly output centering",
+    "padding": "padtype=line per finite continuous run",
+    "resampling_applied": true,
+    "resample_up": 1,
+    "resample_down": 10,
+    "resample_ratio": "1/10",
+    "actual_output_fs_hz": 2000.000000502041,
+    "output_fs_hz": 2000.0,
+    "output_samples": 1869287,
+    "filter_edge_exclusion_s": 0.0045999999988453055
+  },
+  "coupling_stream_first_filter": {
+    "stream_role": "LFP",
+    "source_fs_hz": 20000.00000502041,
+    "target_fs_hz": 2000.0,
+    "finite_continuous_runs": 1,
+    "input_samples": 18692864,
+    "anti_alias_passband_hz": 300.0,
+    "anti_alias_stopband_hz": 850.0,
+    "never_filter_or_resample_across": [
+      "NaN/non-finite samples",
+      "timestamp gaps",
+      "timestamp resets",
+      "separate recording CSVs"
+    ],
+    "method": "scipy.signal.resample_poly with explicit Kaiser-windowed linear-phase FIR anti-alias filter",
+    "filter_family": "FIR Kaiser low-pass",
+    "passband_edge_hz": 300.0,
+    "stopband_edge_hz": 850.0,
+    "transition_width_hz": 550.0,
+    "requested_passband_ripple_db": 0.1,
+    "requested_stopband_attenuation_db": 80.0,
+    "measured_passband_ripple_db": 0.0014179240152358522,
+    "measured_stopband_attenuation_db": 81.10870521673789,
+    "numtaps": 185,
+    "kaiser_beta": 7.85726,
+    "cutoff_hz": 575.0,
+    "coeff_sha256": "5d42e7581cde599af01c11d2d890ee8cd1d24ad3b979fdf94c5389f7d53a25a4",
+    "group_delay_input_samples": 92.0,
+    "group_delay_s": 0.0045999999988453055,
+    "delay_compensation": "linear-phase delay compensated by resample_poly output centering",
+    "padding": "padtype=line per finite continuous run",
+    "resampling_applied": true,
+    "resample_up": 1,
+    "resample_down": 10,
+    "resample_ratio": "1/10",
+    "actual_output_fs_hz": 2000.000000502041,
+    "output_fs_hz": 2000.0,
+    "output_samples": 1869287,
+    "filter_edge_exclusion_s": 0.0045999999988453055
+  },
+  "paths": {
+    "spike_count_csv": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\spike\\ALL_RECORDINGS__spike_counts_per_min.csv",
+    "spike_events_csv": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\spike\\spike_events.csv",
+    "lfp_features_csv": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\lfp\\lfp_features_by_window.csv",
+    "lfp_parameters_json": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\lfp\\lfp_processing_parameters.json",
+    "ppc_csv": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_by_window.csv",
+    "coupling_parameters_json": "lfp_test_outputs\\spie_dual_stream_2khz_20260810_142101\\lfp\\spike_lfp_coupling\\spike_lfp_coupling_parameters.json"
+  },
+  "primary_figure_visual_qc": {
+    "primary_aligned_plot": {
+      "exists": true,
+      "size_px": [
+        2600,
+        1560
+      ],
+      "nonblank_bbox": [
+        0,
+        0,
+        2600,
+        1560
+      ],
+      "inspected": true
+    },
+    "primary_ppc_plot": {
+      "exists": true,
+      "size_px": [
+        2600,
+        1800
+      ],
+      "nonblank_bbox": [
+        0,
+        0,
+        2600,
+        1800
+      ],
+      "inspected": true
+    }
+  }
+}

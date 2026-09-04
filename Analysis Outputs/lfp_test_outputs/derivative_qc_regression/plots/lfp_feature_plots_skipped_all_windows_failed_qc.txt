@@ -1,0 +1,1 @@
+All LFP windows failed QC, so physiological feature plots were skipped. QC summaries and derivative diagnostics were generated where inputs were available.

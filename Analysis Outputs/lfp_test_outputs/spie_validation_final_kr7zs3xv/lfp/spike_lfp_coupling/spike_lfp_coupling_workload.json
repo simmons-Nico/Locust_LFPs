@@ -1,0 +1,30 @@
+{
+  "preparations": 1,
+  "segments": 2,
+  "lfp_channels": 1,
+  "spike_channels": 1,
+  "channel_pairs": 2,
+  "windows": 33,
+  "pair_windows": 33,
+  "phase_bands": 4,
+  "surrogates": 5,
+  "estimated_ppc_computations": 792,
+  "estimated_sfc_rows": 4224,
+  "pairing_mode": "same_channel",
+  "segment_rows": [
+    {
+      "segment_id": "baseline_260131",
+      "lfp_channels": 1,
+      "spike_channels": 1,
+      "channel_pairs": 1,
+      "windows_per_pair": 16
+    },
+    {
+      "segment_id": "post_260131",
+      "lfp_channels": 1,
+      "spike_channels": 1,
+      "channel_pairs": 1,
+      "windows_per_pair": 17
+    }
+  ]
+}

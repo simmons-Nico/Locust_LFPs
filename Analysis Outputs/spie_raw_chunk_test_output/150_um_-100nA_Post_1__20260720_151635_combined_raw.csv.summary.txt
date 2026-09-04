@@ -1,0 +1,16 @@
+Raw chunk combine summary
+=========================
+
+Chunks combined: 4
+Total data rows: 20186000
+Columns: time_s, ch_0_uV, marker_id, marker_name
+Time start (s): 0.000000
+Time end (s): 1009.299950
+Duration span (s): 1009.299950
+
+Chunks
+------
+chunk_000001.csv: rows=6000000, first_time=0.0, last_time=299.99995
+chunk_000002.csv: rows=6000000, first_time=300.0, last_time=599.99995
+chunk_000003.csv: rows=6000000, first_time=600.0, last_time=899.99995
+chunk_000004.csv: rows=2186000, first_time=900.0, last_time=1009.29995

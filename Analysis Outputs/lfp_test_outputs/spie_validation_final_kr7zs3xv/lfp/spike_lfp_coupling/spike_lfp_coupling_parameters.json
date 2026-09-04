@@ -1,0 +1,406 @@
+{
+  "config": {
+    "output_dir": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling",
+    "time_column_candidates": [
+      "time_s",
+      "time",
+      "t",
+      "seconds"
+    ],
+    "lfp_channels": [
+      "B-000"
+    ],
+    "spike_channels": null,
+    "phase_band_hz": [
+      1.0,
+      40.0
+    ],
+    "phase_bands": [
+      [
+        "delta_1_4",
+        "1-4 Hz",
+        [
+          1.0,
+          4.0
+        ]
+      ],
+      [
+        "theta_4_8",
+        "4-8 Hz",
+        [
+          4.0,
+          8.0
+        ]
+      ],
+      [
+        "alpha_8_13",
+        "8-13 Hz",
+        [
+          8.0,
+          13.0
+        ]
+      ],
+      [
+        "beta_13_30",
+        "13-30 Hz",
+        [
+          13.0,
+          30.0
+        ]
+      ]
+    ],
+    "window_s": 60.0,
+    "min_spikes": 20,
+    "surrogate_count": 5,
+    "random_seed": 13,
+    "signal_unit": "uV",
+    "scale_to_uv": null,
+    "filter_order": 4,
+    "notch_frequency_hz": 50.0,
+    "notch_q": 30.0,
+    "pairing_mode": "same_channel",
+    "explicit_channel_pairs": [],
+    "allow_large_all_to_all": false,
+    "max_projected_ppc": 250000,
+    "coupling_downsample_hz": 500.0,
+    "surrogate_chunk_size": 64,
+    "rate_match_sfc": true,
+    "max_sfc_frequency_hz": 100.0,
+    "max_sfc_frequencies": 32,
+    "sfc_flush_rows": 50000,
+    "lfp_feature_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_features_by_window.csv",
+    "spike_processing_provenance": {
+      "pipeline": "Spike Count Multiple CSVs ordered.py::process_csvs",
+      "script_path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Spike Count Multiple CSVs ordered.py",
+      "script_sha256": "9dd552bc710095371b5b108d2bc2dadcb9d44ae9a14c5e4e8c1a49a30019051d",
+      "script_settings": {
+        "HP_SPIKE_BAND": [
+          300.0,
+          5000.0
+        ],
+        "SPIKE_Z_THR": 6.0,
+        "POLARITY": "both",
+        "REFRACTORY_MS": 1.0,
+        "AMP_MIN_UV": 40.0,
+        "AMP_MAX_UV": 700.0,
+        "W_MIN_MS": null,
+        "W_MAX_MS": null,
+        "TIME_COL": "time_s",
+        "MARKER_COLUMN_TOKENS": [
+          "marker",
+          "ttl",
+          "trigger",
+          "event",
+          "digital",
+          "dig",
+          "din",
+          "dout",
+          "stim",
+          "sync"
+        ]
+      },
+      "ordered_recordings": [
+        {
+          "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+          "mtime_ns": 1769878213772322500,
+          "size_bytes": 383844831
+        },
+        {
+          "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+          "mtime_ns": 1769878113397568800,
+          "size_bytes": 412874565
+        }
+      ],
+      "ordered_recording_list": [
+        "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+        "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv"
+      ],
+      "labels_by_path": {
+        "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv": "Baseline",
+        "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv": "Post"
+      },
+      "recording_metadata": [
+        {
+          "source_file": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+          "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+          "recording_order": "1",
+          "segment_id": "baseline_260131",
+          "recording_id": "baseline_260131",
+          "epoch_label": "Baseline",
+          "label": "Baseline",
+          "phase": "baseline",
+          "preparation_id": "260131",
+          "channel": "B-000",
+          "signal_unit": "uV",
+          "reference_scheme": "none"
+        },
+        {
+          "source_file": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+          "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+          "recording_order": "2",
+          "segment_id": "post_260131",
+          "recording_id": "post_260131",
+          "epoch_label": "Post",
+          "label": "Post",
+          "phase": "post",
+          "preparation_id": "260131",
+          "channel": "B-000",
+          "signal_unit": "uV",
+          "reference_scheme": "none"
+        }
+      ],
+      "window_sec": 60.0,
+      "polarity": "both",
+      "export_spike_events": true,
+      "spike_count_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\spike\\ALL_RECORDINGS__spike_counts_per_min.csv",
+      "spike_events_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\spike\\spike_events.csv"
+    }
+  },
+  "outputs": {
+    "ppc_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_by_window.csv",
+    "sfc_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_field_coherence.csv",
+    "summary_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_phase_summary.csv",
+    "ppc_change_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_change_from_baseline.csv",
+    "sfc_change_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_sfc_change_from_baseline.csv",
+    "qc_summary_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_coupling_qc_summary.csv",
+    "workload_json": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_coupling_workload.json",
+    "parameters_json": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_coupling_parameters.json"
+  },
+  "workload": {
+    "preparations": 1,
+    "segments": 2,
+    "lfp_channels": 1,
+    "spike_channels": 1,
+    "channel_pairs": 2,
+    "windows": 33,
+    "pair_windows": 33,
+    "phase_bands": 4,
+    "surrogates": 5,
+    "estimated_ppc_computations": 792,
+    "estimated_sfc_rows": 4224,
+    "pairing_mode": "same_channel",
+    "segment_rows": [
+      {
+        "segment_id": "baseline_260131",
+        "lfp_channels": 1,
+        "spike_channels": 1,
+        "channel_pairs": 1,
+        "windows_per_pair": 16
+      },
+      {
+        "segment_id": "post_260131",
+        "lfp_channels": 1,
+        "spike_channels": 1,
+        "channel_pairs": 1,
+        "windows_per_pair": 17
+      }
+    ]
+  },
+  "spike_processing_provenance": {
+    "pipeline": "Spike Count Multiple CSVs ordered.py::process_csvs",
+    "script_path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Spike Count Multiple CSVs ordered.py",
+    "script_sha256": "9dd552bc710095371b5b108d2bc2dadcb9d44ae9a14c5e4e8c1a49a30019051d",
+    "script_settings": {
+      "HP_SPIKE_BAND": [
+        300.0,
+        5000.0
+      ],
+      "SPIKE_Z_THR": 6.0,
+      "POLARITY": "both",
+      "REFRACTORY_MS": 1.0,
+      "AMP_MIN_UV": 40.0,
+      "AMP_MAX_UV": 700.0,
+      "W_MIN_MS": null,
+      "W_MAX_MS": null,
+      "TIME_COL": "time_s",
+      "MARKER_COLUMN_TOKENS": [
+        "marker",
+        "ttl",
+        "trigger",
+        "event",
+        "digital",
+        "dig",
+        "din",
+        "dout",
+        "stim",
+        "sync"
+      ]
+    },
+    "ordered_recordings": [
+      {
+        "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+        "mtime_ns": 1769878213772322500,
+        "size_bytes": 383844831
+      },
+      {
+        "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+        "mtime_ns": 1769878113397568800,
+        "size_bytes": 412874565
+      }
+    ],
+    "ordered_recording_list": [
+      "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+      "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv"
+    ],
+    "labels_by_path": {
+      "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv": "Baseline",
+      "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv": "Post"
+    },
+    "recording_metadata": [
+      {
+        "source_file": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+        "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Baseline_260131.csv",
+        "recording_order": "1",
+        "segment_id": "baseline_260131",
+        "recording_id": "baseline_260131",
+        "epoch_label": "Baseline",
+        "label": "Baseline",
+        "phase": "baseline",
+        "preparation_id": "260131",
+        "channel": "B-000",
+        "signal_unit": "uV",
+        "reference_scheme": "none"
+      },
+      {
+        "source_file": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+        "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Sample data for SPIE Optimizing\\Locust_Post(-0.9V)_260131.csv",
+        "recording_order": "2",
+        "segment_id": "post_260131",
+        "recording_id": "post_260131",
+        "epoch_label": "Post",
+        "label": "Post",
+        "phase": "post",
+        "preparation_id": "260131",
+        "channel": "B-000",
+        "signal_unit": "uV",
+        "reference_scheme": "none"
+      }
+    ],
+    "window_sec": 60.0,
+    "polarity": "both",
+    "export_spike_events": true,
+    "spike_count_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\spike\\ALL_RECORDINGS__spike_counts_per_min.csv",
+    "spike_events_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\spike\\spike_events.csv"
+  },
+  "interpretation_warning": "PPC/SFC are MUA-LFP phase-coupling markers for threshold crossings and do not establish single-unit identity or causal connectivity.",
+  "same_channel_warning": "Same-channel spike-LFP coupling is useful for longitudinal channel matching, but spike-waveform leakage can inflate PPC/SFC.",
+  "h2o2_safety_warning": "H2O2 interpretation warning: an LFP amplitude/power effect that also appears in saline without tissue, no-tissue H2O2 control, vehicle/perfusion control, or that tracks impedance/reference/noise change cannot be assigned to neural physiology.",
+  "schemas": {
+    "spike_lfp_ppc_by_window.csv": [
+      "experiment_id",
+      "animal_id",
+      "preparation_id",
+      "segment_id",
+      "recording_id",
+      "recording_order",
+      "source_file",
+      "epoch_label",
+      "phase",
+      "treatment",
+      "concentration_value",
+      "concentration_unit",
+      "lfp_channel",
+      "spike_channel",
+      "channel_pair",
+      "pairing_mode",
+      "same_channel",
+      "band_key",
+      "band_label",
+      "phase_band_lo_hz",
+      "phase_band_hi_hz",
+      "window_index",
+      "window_start_s",
+      "window_end_s",
+      "window_mid_s",
+      "cumulative_window_mid_s",
+      "spike_count",
+      "valid_lfp_duration_s",
+      "primary_power_uV2",
+      "ppc",
+      "preferred_phase_rad",
+      "preferred_phase_deg",
+      "surrogate_mean",
+      "surrogate_ci_low",
+      "surrogate_ci_high",
+      "surrogate_p_value",
+      "signal_qc_pass",
+      "signal_qc_reason",
+      "feature_qc_pass",
+      "feature_qc_reason",
+      "coupling_qc_pass",
+      "coupling_qc_reason",
+      "qc_pass",
+      "qc_reason",
+      "ppc_change_from_baseline",
+      "coupling_label",
+      "interpretation_warning",
+      "same_channel_warning",
+      "h2o2_safety_warning",
+      "baseline_median_ppc"
+    ],
+    "spike_field_coherence.csv": [
+      "experiment_id",
+      "animal_id",
+      "preparation_id",
+      "segment_id",
+      "recording_id",
+      "recording_order",
+      "source_file",
+      "epoch_label",
+      "phase",
+      "treatment",
+      "concentration_value",
+      "concentration_unit",
+      "lfp_channel",
+      "spike_channel",
+      "channel_pair",
+      "pairing_mode",
+      "same_channel",
+      "band_key",
+      "band_label",
+      "window_index",
+      "window_start_s",
+      "window_end_s",
+      "window_mid_s",
+      "cumulative_window_mid_s",
+      "spike_count",
+      "valid_lfp_duration_s",
+      "frequency_hz",
+      "sfc",
+      "sfc_change_from_baseline",
+      "rate_matched_sfc",
+      "signal_qc_pass",
+      "feature_qc_pass",
+      "coupling_qc_pass",
+      "qc_pass",
+      "baseline_median_sfc"
+    ],
+    "spike_lfp_phase_summary.csv": [
+      "experiment_id",
+      "animal_id",
+      "preparation_id",
+      "epoch_label",
+      "phase",
+      "lfp_channel",
+      "spike_channel",
+      "band_key",
+      "band_label",
+      "phase_band_lo_hz",
+      "phase_band_hi_hz",
+      "ppc_median",
+      "ppc_mean",
+      "preferred_phase_rad",
+      "spike_count_total",
+      "valid_lfp_duration_s",
+      "n_valid_windows",
+      "biological_n_preparations",
+      "coupling_label",
+      "interpretation_warning"
+    ],
+    "spike_lfp_coupling_qc_summary.csv": [
+      "qc_pass",
+      "qc_reason",
+      "rows"
+    ]
+  }
+}

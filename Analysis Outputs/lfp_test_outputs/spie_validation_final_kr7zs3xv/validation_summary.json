@@ -1,0 +1,479 @@
+{
+  "out_root": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv",
+  "timings": {
+    "spike_pipeline_s": 9.519,
+    "lfp_features_s": 69.774,
+    "coupling_s": 90.375,
+    "plotting_s": 46.296
+  },
+  "workload": {
+    "preparations": 1,
+    "segments": 2,
+    "lfp_channels": 1,
+    "spike_channels": 1,
+    "channel_pairs": 2,
+    "windows": 33,
+    "pair_windows": 33,
+    "phase_bands": 4,
+    "surrogates": 5,
+    "estimated_ppc_computations": 792,
+    "estimated_sfc_rows": 4224,
+    "pairing_mode": "same_channel",
+    "segment_rows": [
+      {
+        "segment_id": "baseline_260131",
+        "lfp_channels": 1,
+        "spike_channels": 1,
+        "channel_pairs": 1,
+        "windows_per_pair": 16
+      },
+      {
+        "segment_id": "post_260131",
+        "lfp_channels": 1,
+        "spike_channels": 1,
+        "channel_pairs": 1,
+        "windows_per_pair": 17
+      }
+    ]
+  },
+  "spike_count_rows": 31,
+  "spike_event_rows": 19842,
+  "spike_events_by_segment_channel": {
+    "('baseline_260131', 'B-000')": 15211,
+    "('post_260131', 'B-000')": 4631
+  },
+  "lfp_feature_rows": 33,
+  "lfp_valid_rows": 33,
+  "ppc_rows": 132,
+  "ppc_valid_rows": 132,
+  "ppc_range": [
+    -0.0026051866296907,
+    0.1022923707879979
+  ],
+  "sfc_rows": 4224,
+  "sfc_range": [
+    7.59211336243644e-06,
+    0.4180369765951764
+  ],
+  "plot_count": 30,
+  "plot_failures": [],
+  "plot_checks": [
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_multichannel_raster_260131_baseline_260131.png",
+      "size": 59828,
+      "width": 2400,
+      "height": 600,
+      "stddev": 33.806,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_multichannel_raster_260131_post_260131.png",
+      "size": 62512,
+      "width": 2400,
+      "height": 600,
+      "stddev": 34.06,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_overview_260131_baseline_260131_B-000.png",
+      "size": 323369,
+      "width": 2600,
+      "height": 1500,
+      "stddev": 59.728,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_overview_260131_post_260131_B-000.png",
+      "size": 307051,
+      "width": 2600,
+      "height": 1500,
+      "stddev": 65.592,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_summary.png",
+      "size": 188611,
+      "width": 2600,
+      "height": 2000,
+      "stddev": 68.623,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_zoom_260131_baseline_260131_B-000_1.046s.png",
+      "size": 525127,
+      "width": 2400,
+      "height": 1839,
+      "stddev": 50.254,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_zoom_260131_post_260131_B-000_2.042s.png",
+      "size": 573542,
+      "width": 2400,
+      "height": 1839,
+      "stddev": 55.841,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_triggered_waveforms_260131_baseline_260131_B-000.png",
+      "size": 758696,
+      "width": 2600,
+      "height": 800,
+      "stddev": 41.148,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_triggered_waveforms_260131_post_260131_B-000.png",
+      "size": 707623,
+      "width": 2600,
+      "height": 800,
+      "stddev": 41.103,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_band_power_trajectories.png",
+      "size": 295683,
+      "width": 2400,
+      "height": 1040,
+      "stddev": 34.544,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_baseline_normalized_broadband_power.png",
+      "size": 100755,
+      "width": 2400,
+      "height": 919,
+      "stddev": 28.783,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_channel_time_heatmap.png",
+      "size": 53772,
+      "width": 2400,
+      "height": 600,
+      "stddev": 81.623,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_feature_vs_experiment_time.png",
+      "size": 109355,
+      "width": 2400,
+      "height": 960,
+      "stddev": 28.501,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_oscillatory_event_metrics.png",
+      "size": 182246,
+      "width": 2200,
+      "height": 1920,
+      "stddev": 31.103,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_paired_baseline_post_by_preparation.png",
+      "size": 68233,
+      "width": 1400,
+      "height": 1000,
+      "stddev": 28.294,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_peak_frequency_and_peak_over_aperiodic.png",
+      "size": 194762,
+      "width": 2200,
+      "height": 1360,
+      "stddev": 32.368,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_psd_overlays_by_phase.png",
+      "size": 126213,
+      "width": 1900,
+      "height": 1040,
+      "stddev": 28.922,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_qc_overview.png",
+      "size": 347283,
+      "width": 2200,
+      "height": 3600,
+      "stddev": 33.436,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_treatment_minus_baseline_psd.png",
+      "size": 186804,
+      "width": 1900,
+      "height": 1040,
+      "stddev": 38.091,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\spike_lfp_ppc_timecourse.png",
+      "size": 280290,
+      "width": 2200,
+      "height": 900,
+      "stddev": 43.085,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_field_coherence_spectrum.png",
+      "size": 166114,
+      "width": 1800,
+      "height": 960,
+      "stddev": 33.94,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_count_lfp_power_260131_B-000-_B-000.png",
+      "size": 121048,
+      "width": 2000,
+      "height": 1200,
+      "stddev": 35.206,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_change_from_baseline.png",
+      "size": 97788,
+      "width": 1800,
+      "height": 960,
+      "stddev": 54.46,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_paired_baseline_to_epoch.png",
+      "size": 377904,
+      "width": 1400,
+      "height": 1000,
+      "stddev": 36.048,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_timecourse_260131_B-000-_B-000_1-4_Hz.png",
+      "size": 114908,
+      "width": 2000,
+      "height": 919,
+      "stddev": 31.537,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_timecourse_260131_B-000-_B-000_13-30_Hz.png",
+      "size": 113369,
+      "width": 2000,
+      "height": 919,
+      "stddev": 32.027,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_timecourse_260131_B-000-_B-000_4-8_Hz.png",
+      "size": 108584,
+      "width": 2000,
+      "height": 919,
+      "stddev": 31.298,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_timecourse_260131_B-000-_B-000_8-13_Hz.png",
+      "size": 119950,
+      "width": 2000,
+      "height": 919,
+      "stddev": 32.174,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_preferred_phase_histogram.png",
+      "size": 154847,
+      "width": 1200,
+      "height": 1200,
+      "stddev": 35.815,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_sfc_change_from_baseline_spectrum.png",
+      "size": 110716,
+      "width": 1800,
+      "height": 960,
+      "stddev": 31.125,
+      "extrema": [
+        0,
+        255
+      ],
+      "nonblank": true
+    }
+  ],
+  "plot_outputs": {
+    "plots": [
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_qc_overview.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_summary.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_multichannel_raster_260131_baseline_260131.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_multichannel_raster_260131_post_260131.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_overview_260131_baseline_260131_B-000.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_zoom_260131_baseline_260131_B-000_1.046s.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_triggered_waveforms_260131_baseline_260131_B-000.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_overview_260131_post_260131_B-000.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_qc_zoom_260131_post_260131_B-000_2.042s.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\derivative_qc\\derivative_triggered_waveforms_260131_post_260131_B-000.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_feature_vs_experiment_time.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_baseline_normalized_broadband_power.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_band_power_trajectories.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_psd_overlays_by_phase.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_treatment_minus_baseline_psd.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_peak_frequency_and_peak_over_aperiodic.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_oscillatory_event_metrics.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_channel_time_heatmap.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_paired_baseline_post_by_preparation.png",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\spike_lfp_ppc_timecourse.png"
+    ],
+    "tables": [
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_qc_failure_summary.csv",
+      "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_plots\\lfp_plot_preparation_summary.csv"
+    ]
+  },
+  "coupling_paths": {
+    "ppc_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_by_window.csv",
+    "sfc_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_field_coherence.csv",
+    "summary_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_phase_summary.csv",
+    "ppc_change_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_ppc_change_from_baseline.csv",
+    "sfc_change_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_sfc_change_from_baseline.csv",
+    "qc_summary_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_coupling_qc_summary.csv",
+    "workload_json": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_coupling_workload.json",
+    "parameters_json": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\spike_lfp_coupling\\spike_lfp_coupling_parameters.json"
+  },
+  "lfp_paths": {
+    "manifest_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_recording_manifest.csv",
+    "features_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_features_by_window.csv",
+    "qc_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_qc_by_window.csv",
+    "qc_failures_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_qc_failures.csv",
+    "events_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_events.csv",
+    "derivative_events_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_derivative_events.csv",
+    "phase_summary_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_phase_summary.csv",
+    "baseline_post_statistics_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_baseline_post_statistics.csv",
+    "matched_channel_availability_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_matched_channel_availability.csv",
+    "derivative_sensitivity_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_derivative_qc_sensitivity.csv",
+    "psd_long_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_psd_long.csv",
+    "parameters_json": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\lfp\\lfp_processing_parameters.json"
+  },
+  "spike_result": {
+    "spike_count_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\spike\\ALL_RECORDINGS__spike_counts_per_min.csv",
+    "spike_events_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\spike\\spike_events.csv",
+    "spike_processing_provenance_json": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\lfp_test_outputs\\spie_validation_final_kr7zs3xv\\spike\\spike_processing_provenance.json"
+  }
+}
