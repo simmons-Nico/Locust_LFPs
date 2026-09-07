@@ -158,9 +158,6 @@ class SpikePipelineRequest:
     export_spike_events: bool
     spike_events_path: str | None
     recording_metadata: list[dict]
-    plot_spike_amplitude_change: bool = False
-    overlay_spike_amplitudes: bool = False
-    spike_amplitude_boundary_label: str = "H2O2 treatment - not recorded"
 
 
 def _file_fingerprint(path: str | Path) -> dict:
@@ -222,9 +219,6 @@ def run_shared_spike_pipeline(request: SpikePipelineRequest, script_path: Path =
         epoch_labels_by_path=request.labels_by_path,
         window_sec=request.window_sec,
         polarity=polarity,
-        plot_spike_amplitude_change=request.plot_spike_amplitude_change,
-        overlay_spike_amplitudes=request.overlay_spike_amplitudes,
-        spike_amplitude_boundary_label=request.spike_amplitude_boundary_label,
         export_spike_events=request.export_spike_events,
         spike_events_path=request.spike_events_path,
         recording_metadata_by_path=request.recording_metadata,
@@ -248,15 +242,13 @@ def run_shared_spike_pipeline(request: SpikePipelineRequest, script_path: Path =
         "window_sec": float(request.window_sec),
         "polarity": polarity,
         "export_spike_events": bool(request.export_spike_events),
-        "plot_spike_amplitude_change": bool(request.plot_spike_amplitude_change),
-        "overlay_spike_amplitudes": bool(request.overlay_spike_amplitudes),
-        "spike_amplitude_boundary_label": request.spike_amplitude_boundary_label,
         "spike_count_csv": str(spike_count_csv),
         "spike_events_csv": str(spike_events_csv) if request.export_spike_events else None,
         "spike_diagnostics_dir": str(Path(out_dir) / "spike_diagnostics"),
         "spike_waveform_summary_csv": str(Path(out_dir) / "spike_waveform_summary.csv"),
         "spike_diagnostic_outputs_csv": str(Path(out_dir) / "spike_diagnostic_outputs.csv"),
         "spike_amplitude_timecourse_csv": str(spike_outputs.get("spike_amplitude_timecourse_csv", "")),
+        "spike_amplitude_waveforms_csv": str(spike_outputs.get("spike_amplitude_waveforms_csv", "")),
         "spike_amplitude_plot_paths": list(spike_outputs.get("spike_amplitude_plot_paths", [])),
         "spike_amplitude_qc_warnings": list(spike_outputs.get("spike_amplitude_qc_warnings", [])),
     }
@@ -272,6 +264,7 @@ def run_shared_spike_pipeline(request: SpikePipelineRequest, script_path: Path =
         "spike_waveform_summary_csv": str(Path(out_dir) / "spike_waveform_summary.csv"),
         "spike_diagnostic_outputs_csv": str(Path(out_dir) / "spike_diagnostic_outputs.csv"),
         "spike_amplitude_timecourse_csv": str(spike_outputs.get("spike_amplitude_timecourse_csv", "")),
+        "spike_amplitude_waveforms_csv": str(spike_outputs.get("spike_amplitude_waveforms_csv", "")),
         "spike_amplitude_plot_paths": list(spike_outputs.get("spike_amplitude_plot_paths", [])),
         "spike_amplitude_qc_warnings": list(spike_outputs.get("spike_amplitude_qc_warnings", [])),
         "spike_processing_provenance_json": provenance_json or "",
@@ -880,9 +873,6 @@ class LocustPipelineApp:
         self.spike_window_var = tk.StringVar(value="1 min")
         self.spike_polarity_var = tk.StringVar(value="both")
         self.spike_export_events_var = tk.BooleanVar(value=False)
-        self.spike_plot_amplitude_change_var = tk.BooleanVar(value=False)
-        self.spike_overlay_amplitude_var = tk.BooleanVar(value=False)
-        self.spike_amplitude_boundary_label_var = tk.StringVar(value="H2O2 treatment - not recorded")
         self.spike_events_csv_var = tk.StringVar(value="")
         self.spike_out_dir_var = tk.StringVar(
             value=str(DEFAULT_DATA_DIR / "spike_counts_per_min")
@@ -945,20 +935,6 @@ class LocustPipelineApp:
             variable=self.spike_export_events_var,
         ).grid(row=row, column=1, sticky="w", pady=4)
         row += 1
-        ttk.Checkbutton(
-            settings,
-            text="Plot spike amplitude change from baseline",
-            variable=self.spike_plot_amplitude_change_var,
-        ).grid(row=row, column=1, sticky="w", pady=4)
-        row += 1
-        ttk.Checkbutton(
-            settings,
-            text="Overlay positive and negative amplitudes in one figure",
-            variable=self.spike_overlay_amplitude_var,
-        ).grid(row=row, column=1, sticky="w", pady=4)
-        row += 1
-        ttk.Label(settings, text="Baseline/Post boundary label").grid(row=row, column=0, sticky="w", pady=4)
-        ttk.Entry(settings, textvariable=self.spike_amplitude_boundary_label_var).grid(row=row, column=1, columnspan=2, sticky="ew", pady=4)
 
         controls = ttk.Frame(order_box)
         controls.grid(row=0, column=0, columnspan=3, sticky="ew", pady=(0, 8))
@@ -1309,6 +1285,8 @@ class LocustPipelineApp:
         self.perfusion_title_var = self.epoch_title_vars["perfusion"]
         self.perfusion_substance_var = tk.StringVar(value="")
         self.perfusion_concentration_var = tk.StringVar(value="")
+        self.amp_overlay_var = tk.BooleanVar(value=False)
+        self.amp_boundary_label_var = tk.StringVar(value="H2O2 treatment - not recorded")
 
         self.phase_baseline_var = tk.BooleanVar(value=True)
         self.phase_stim_var = tk.BooleanVar(value=True)
@@ -1358,6 +1336,15 @@ class LocustPipelineApp:
             row=1,
             column=1,
         )
+        self._plot_tool_card(
+            selector,
+            key="amplitude_change",
+            title="Spike amplitude change",
+            description="Amplitude change from baseline, replotted from spike-amplitude time-course CSVs.",
+            color=STEP_COLORS["spike"],
+            row=2,
+            column=0,
+        )
 
         row += 1
         self.plot_detail_frame = ttk.Frame(frame)
@@ -1368,6 +1355,7 @@ class LocustPipelineApp:
         self.plot_detail_panels = {
             "baseline_post": self._build_baseline_post_plot_panel(self.plot_detail_frame),
             "continuous_spike": self._build_continuous_spike_plot_panel(self.plot_detail_frame),
+            "amplitude_change": self._build_amplitude_change_plot_panel(self.plot_detail_frame),
         }
         self.show_plot_panel("baseline_post")
         self._bind_plot_tab_mousewheel_widgets(frame)
@@ -1434,6 +1422,7 @@ class LocustPipelineApp:
         names = {
             "baseline_post": "Percentage Change from Baseline selected",
             "continuous_spike": "Continuous spike-count plots selected",
+            "amplitude_change": "Spike amplitude change selected",
         }
         self.stage_var.set(names.get(key, "Plot tool selected"))
 
@@ -1690,6 +1679,34 @@ class LocustPipelineApp:
         ).grid(row=row, column=1, sticky="w", pady=4)
         row += 1
         ttk.Button(panel, text="Run Plotting", style="Plot.TButton", command=self.run_continuous_spike_plot).grid(
+            row=row,
+            column=1,
+            sticky="w",
+            pady=(8, 0),
+        )
+        return panel
+
+    def _build_amplitude_change_plot_panel(self, parent):
+        panel = ttk.LabelFrame(parent, text="Spike amplitude change parameters", padding=12)
+        panel.columnconfigure(1, weight=1)
+
+        row = 0
+        ttk.Label(
+            panel,
+            text="Uses the shared Plot output folder above. Leave it blank to save next to the input CSV.",
+            style="Hint.TLabel",
+        ).grid(row=row, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        row += 1
+        ttk.Checkbutton(
+            panel,
+            text="Overlay positive and negative amplitudes in one figure",
+            variable=self.amp_overlay_var,
+        ).grid(row=row, column=0, columnspan=3, sticky="w", pady=4)
+        row += 1
+        ttk.Label(panel, text="Baseline/Post boundary label").grid(row=row, column=0, sticky="w", pady=4)
+        ttk.Entry(panel, textvariable=self.amp_boundary_label_var).grid(row=row, column=1, columnspan=2, sticky="ew", pady=4)
+        row += 1
+        ttk.Button(panel, text="Run Plotting", style="Plot.TButton", command=self.run_amplitude_change_plot).grid(
             row=row,
             column=1,
             sticky="w",
@@ -2533,11 +2550,9 @@ class LocustPipelineApp:
         labels = dict(labels or {})
         selected_out_dir = out_dir if out_dir is not None else self.spike_out_dir_var.get().strip()
         write_events = bool(self.spike_export_events_var.get() if export_spike_events is None else export_spike_events)
-        plot_amplitude_change = bool(self.spike_plot_amplitude_change_var.get())
-        overlay_spike_amplitudes = bool(self.spike_overlay_amplitude_var.get())
         selected_out_dir = selected_out_dir or str(Path(paths[0]).parent / "spike_counts_per_min")
         spike_events_path = str(Path(selected_out_dir) / "spike_events.csv") if write_events else None
-        metadata = self._spike_metadata_for_paths(paths, labels, recording_metadata) if write_events or plot_amplitude_change else []
+        metadata = self._spike_metadata_for_paths(paths, labels, recording_metadata)
         return SpikePipelineRequest(
             paths=list(paths),
             labels_by_path=labels,
@@ -2547,9 +2562,6 @@ class LocustPipelineApp:
             export_spike_events=write_events,
             spike_events_path=spike_events_path,
             recording_metadata=metadata,
-            plot_spike_amplitude_change=plot_amplitude_change,
-            overlay_spike_amplitudes=overlay_spike_amplitudes,
-            spike_amplitude_boundary_label=self.spike_amplitude_boundary_label_var.get().strip() or "H2O2 treatment - not recorded",
         )
 
     def _perform_spike_counting(self, request: SpikePipelineRequest) -> dict:
@@ -3070,8 +3082,9 @@ class LocustPipelineApp:
                 self.log_queue.put(f"Spike waveform summary:\n  {result.get('spike_waveform_summary_csv')}\n")
             if result.get("spike_amplitude_timecourse_csv"):
                 self.log_queue.put(f"Spike amplitude time-course:\n  {result.get('spike_amplitude_timecourse_csv')}\n")
-                plot_count = len(result.get("spike_amplitude_plot_paths") or [])
-                self.log_queue.put(f"Spike amplitude figures: {plot_count}\n")
+                if result.get("spike_amplitude_waveforms_csv"):
+                    self.log_queue.put(f"Spike amplitude waveforms:\n  {result.get('spike_amplitude_waveforms_csv')}\n")
+                self.log_queue.put("Use 'Spike amplitude change' in the Comparison and plotting tab to make figures.\n")
             for warning in result.get("spike_amplitude_qc_warnings") or []:
                 self.log_queue.put(f"[spike amplitude warning] {warning}\n")
             if not self.plot_out_dir_var.get().strip():
@@ -3228,6 +3241,41 @@ class LocustPipelineApp:
             return self._perform_continuous_spike_plot(input_path)
 
         self.run_background("Continuous spike plotting", task)
+
+    def run_amplitude_change_plot(self) -> None:
+        input_path = self.plot_input_var.get().strip()
+        if not input_path:
+            messagebox.showerror("Missing input", "Choose the spike-amplitude time-course CSV first.")
+            return
+
+        def task():
+            return self._perform_amplitude_change_plot(input_path)
+
+        self.run_background("Spike amplitude change plotting", task)
+
+    def _perform_amplitude_change_plot(self, input_path: str) -> str:
+        import matplotlib
+
+        matplotlib.use("Agg", force=True)
+        module = load_script_module(SPIKE_SCRIPT, f"spike_replot_amplitude_{threading.get_ident()}")
+        waveform_csv = str(Path(input_path).with_name("spike_amplitude_waveforms.csv"))
+        if not Path(waveform_csv).exists():
+            waveform_csv = None
+        out_dir = self.plot_out_dir_var.get().strip() or str(Path(input_path).parent)
+        results = module.replot_spike_amplitude_timecourse(
+            input_path,
+            waveform_csv=waveform_csv,
+            out_dir=out_dir,
+            boundary_label=self.amp_boundary_label_var.get().strip() or "H2O2 treatment - not recorded",
+            overlay=bool(self.amp_overlay_var.get()),
+        )
+        for plot_path in results.get("plot_paths", []):
+            self.log_queue.put(f"Spike amplitude change figure:\n  {plot_path}\n")
+        for warning in results.get("warnings", []):
+            self.log_queue.put(f"[spike amplitude warning] {warning}\n")
+        if not results.get("plot_paths"):
+            self.log_queue.put("[spike amplitude] No amplitude figures produced.\n")
+        return out_dir
 
     def _default_full_pipeline_epoch_label(self) -> str:
         for item in self.recordings:
