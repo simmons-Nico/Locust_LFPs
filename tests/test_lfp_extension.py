@@ -712,7 +712,9 @@ class LFPExtensionTests(unittest.TestCase):
         df = pd.read_csv(out)
         self.assertIn("spike_count", df.columns)
         self.assertNotIn("spike_time_s", df.columns)
-        self.assertFalse((self.root / "spike_out" / "spike_events.csv").exists())
+        events_path = self.root / "spike_out" / "spike_events.csv"
+        self.assertTrue(events_path.exists())
+        self.assertEqual(pd.read_csv(events_path).shape[0], 0)
 
 
 if __name__ == "__main__":

@@ -38,7 +38,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from scipy.signal import butter, filtfilt, find_peaks
-from matplotlib.lines import Line2D
 
 
 # =========================
@@ -93,10 +92,6 @@ MARKER_COLUMN_TOKENS = (
     "stim",
     "sync",
 )
-
-TRACE_MARKER = "o"
-TRACE_LINEWIDTH = 2.0
-TRACE_COLOR = "tab:blue"
 
 POLARITY_ALIASES = {
     "all": "both",
@@ -714,28 +709,15 @@ def spike_autocorrelogram(times_s: np.ndarray, bin_ms: float = SPIKE_ACG_BIN_MS,
     return centers, counts.astype(float)
 
 
-def _save_current_figure(path: str) -> str:
-    plt.tight_layout()
-    plt.savefig(path, dpi=200)
-    plt.close()
-    return path
-
-
 def write_spike_diagnostic_outputs(
     out_dir: str,
     rec_name: str,
     channel: str,
-    t_s: np.ndarray,
     details: dict,
-    rate_bin_s: float = SPIKE_RATE_BIN_S,
 ) -> tuple[list[dict], list[dict]]:
-    """Write spike raster/rate/ISI/ACG and average waveform outputs for one channel."""
+    """Write per-recording average waveform CSVs and waveform summaries (figures are drawn on the 4th tab)."""
     diagnostic_dir = os.path.join(out_dir, "spike_diagnostics")
     dirs = {
-        "raster": os.path.join(diagnostic_dir, "rasters"),
-        "rate": os.path.join(diagnostic_dir, "rates"),
-        "isi": os.path.join(diagnostic_dir, "isi"),
-        "acg": os.path.join(diagnostic_dir, "autocorrelograms"),
         "waveform": os.path.join(diagnostic_dir, "average_waveforms"),
     }
     for folder in dirs.values():
@@ -759,61 +741,6 @@ def write_spike_diagnostic_outputs(
             }
         )
 
-    if spike_times.size:
-        plt.figure(figsize=(10, 2.5))
-        plt.eventplot(spike_times, lineoffsets=1, linelengths=0.8, colors="black")
-        plt.yticks([])
-        plt.xlabel("Time (s)")
-        plt.title(f"Spike raster - {rec_name} | {channel} (n={spike_times.size})")
-        add("spike_raster", _save_current_figure(os.path.join(dirs["raster"], f"{prefix}__spike_raster.png")))
-
-        t_min = float(np.nanmin(t_s)) if np.isfinite(t_s).any() else float(spike_times.min())
-        t_max = float(np.nanmax(t_s)) if np.isfinite(t_s).any() else float(spike_times.max())
-        if t_max > t_min and rate_bin_s > 0:
-            edges = np.arange(t_min, t_max + rate_bin_s, rate_bin_s)
-            if edges.size >= 2:
-                counts, edges = np.histogram(spike_times, bins=edges)
-                centers = (edges[:-1] + edges[1:]) / 2.0
-                plt.figure(figsize=(10, 3.0))
-                plt.plot(centers, counts / float(rate_bin_s), linewidth=1.5)
-                plt.xlabel("Time (s)")
-                plt.ylabel("Rate (spikes/s)")
-                plt.title(f"Firing rate - {rec_name} | {channel} (bin={rate_bin_s:g}s)")
-                plt.grid(True, alpha=0.25)
-                add("firing_rate", _save_current_figure(os.path.join(dirs["rate"], f"{prefix}__firing_rate.png")))
-
-    if spike_times.size >= 2:
-        isi_ms = np.diff(np.sort(spike_times)) * 1000.0
-        finite_isi = isi_ms[np.isfinite(isi_ms) & (isi_ms > 0)]
-        if finite_isi.size:
-            upper = max(50.0, float(np.nanpercentile(finite_isi, 99)))
-            plt.figure(figsize=(7, 4))
-            plt.hist(finite_isi, bins=np.linspace(0.0, upper, 60), edgecolor="none")
-            plt.xlabel("ISI (ms)")
-            plt.ylabel("Count")
-            plt.title(f"ISI histogram - {rec_name} | {channel}")
-            add("isi_histogram", _save_current_figure(os.path.join(dirs["isi"], f"{prefix}__isi_histogram.png")))
-
-            lo = max(0.5, float(np.nanmin(finite_isi)))
-            hi = max(1000.0, float(np.nanmax(finite_isi)))
-            if hi > lo:
-                plt.figure(figsize=(7, 4))
-                plt.hist(finite_isi, bins=np.logspace(np.log10(lo), np.log10(hi), 60), edgecolor="none")
-                plt.xscale("log")
-                plt.xlabel("ISI (ms, log)")
-                plt.ylabel("Count")
-                plt.title(f"ISI histogram, log bins - {rec_name} | {channel}")
-                add("isi_histogram_log", _save_current_figure(os.path.join(dirs["isi"], f"{prefix}__isi_histogram_log.png")))
-
-        lag_ms, acg = spike_autocorrelogram(spike_times)
-        if lag_ms.size:
-            plt.figure(figsize=(7, 4))
-            plt.bar(lag_ms, acg, width=SPIKE_ACG_BIN_MS, color="tab:blue", alpha=0.85)
-            plt.xlabel("Lag (ms)")
-            plt.ylabel("Spike-pair count")
-            plt.title(f"Autocorrelogram - {rec_name} | {channel}")
-            add("autocorrelogram", _save_current_figure(os.path.join(dirs["acg"], f"{prefix}__autocorrelogram.png")))
-
     waveform_summary_rows: list[dict] = []
     x_hp = details.get("filtered_trace_uv")
     if x_hp is not None:
@@ -830,12 +757,6 @@ def write_spike_diagnostic_outputs(
             valid_peaks, waveforms, rel_ms = extract_spike_waveforms(x_hp, class_peaks, fs)
 
             if waveforms.shape[0] >= 1:
-                if waveforms.shape[0] > SPIKE_WAVEFORM_MAX_TRACES:
-                    plot_idx = np.unique(
-                        np.linspace(0, waveforms.shape[0] - 1, SPIKE_WAVEFORM_MAX_TRACES).round().astype(int)
-                    )
-                else:
-                    plot_idx = np.arange(waveforms.shape[0])
                 mean = np.nanmean(waveforms, axis=0)
                 sem = (
                     np.nanstd(waveforms, axis=0, ddof=1) / math.sqrt(waveforms.shape[0])
@@ -843,7 +764,6 @@ def write_spike_diagnostic_outputs(
                     else np.zeros_like(mean)
                 )
             else:
-                plot_idx = np.array([], dtype=int)
                 mean = np.full(rel_ms.shape, np.nan, dtype=float)
                 sem = np.full(rel_ms.shape, np.nan, dtype=float)
 
@@ -857,22 +777,6 @@ def write_spike_diagnostic_outputs(
                 }
             ).to_csv(csv_path, index=False)
             add(f"{polarity_name}_average_waveform_csv", csv_path)
-
-            color = EVENT_POLARITY_COLORS[polarity_key]
-            plt.figure(figsize=(6.6, 4.2))
-            for wave in waveforms[plot_idx]:
-                plt.plot(rel_ms, wave, color="#9ca3af", alpha=0.16, linewidth=0.6)
-            if np.isfinite(mean).any():
-                plt.plot(rel_ms, mean, color=color, linewidth=2.0, label="Mean")
-                plt.fill_between(rel_ms, mean - sem, mean + sem, color=color, alpha=0.22, label="SEM")
-                plt.legend(loc="best")
-            plt.axvline(0.0, color="black", alpha=0.45, linewidth=1)
-            plt.xlabel(EVENT_POLARITY_AXIS_LABELS[polarity_key])
-            plt.ylabel("Spike-band voltage (uV)")
-            plt.title(f"{polarity_name.title()} average spike waveform - {rec_name} | {channel} (n={waveforms.shape[0]})")
-            plt.grid(True, alpha=0.25)
-            png_path = _save_current_figure(os.path.join(dirs["waveform"], f"{prefix}__{polarity_name}_average_waveform.png"))
-            add(f"{polarity_name}_average_waveform_plot", png_path)
 
             zero_idx = int(np.argmin(np.abs(rel_ms))) if rel_ms.size else 0
             zero_mean = float(mean[zero_idx]) if rel_ms.size and np.isfinite(mean[zero_idx]) else np.nan
@@ -897,7 +801,7 @@ def write_spike_diagnostic_outputs(
                     "mean_peak_abs_uv": float(abs(zero_mean)) if np.isfinite(zero_mean) else np.nan,
                     "mean_peak_to_peak_uv": float(np.nanmax(mean) - np.nanmin(mean)) if np.isfinite(mean).any() else np.nan,
                     "waveform_csv": csv_path,
-                    "waveform_plot": png_path,
+                    "waveform_plot": "",
                 }
             )
 
@@ -1658,6 +1562,7 @@ def _plot_spike_amplitude_timecourse_figures(
     output_polarities: tuple[str, ...],
     overlay: bool,
     boundary_label: str = DEFAULT_UNRECORDED_TREATMENT_LABEL,
+    channels: list[str] | None = None,
 ) -> list[str]:
     if bin_df.empty:
         return []
@@ -1665,7 +1570,8 @@ def _plot_spike_amplitude_timecourse_figures(
     os.makedirs(figure_dir, exist_ok=True)
     plot_paths: list[str] = []
 
-    for channel in sorted(bin_df["channel"].dropna().astype(str).unique()):
+    selected_channels = [c for c in sorted(bin_df["channel"].dropna().astype(str).unique()) if channels is None or c in set(channels)]
+    for channel in selected_channels:
         if overlay and len(output_polarities) > 1:
             figure_jobs = [(output_polarities, "overlay")]
         else:
@@ -1788,20 +1694,29 @@ def replot_spike_amplitude_timecourse(
     out_dir: str | None = None,
     boundary_label: str | None = None,
     overlay: bool = False,
+    channels: list[str] | None = None,
+    polarity: str | None = None,
 ) -> dict:
-    """Replot spike-amplitude change-from-baseline figures from persisted time-course CSVs."""
+    """Replot spike-amplitude change-from-baseline figures from persisted time-course CSVs.
+
+    channels: restrict figures to these channel names; None plots all channels.
+    polarity: "both" / "pos" / "neg"; None infers from the CSV contents.
+    """
     import os
 
     bin_df = pd.read_csv(input_csv)
     if bin_df.empty:
         return {"plot_paths": [], "warnings": ["Empty amplitude time-course CSV."]}
+    if channels:
+        bin_df = bin_df[bin_df["channel"].astype(str).isin(set(channels))]
+        if bin_df.empty:
+            return {"plot_paths": [], "warnings": ["Selected channels not found in the amplitude time-course CSV."]}
     os.makedirs(out_dir or os.path.dirname(input_csv) or ".", exist_ok=True)
     out_dir = out_dir or os.path.dirname(input_csv) or "."
     boundary_label = (boundary_label or DEFAULT_UNRECORDED_TREATMENT_LABEL).strip() or DEFAULT_UNRECORDED_TREATMENT_LABEL
     rec_df = _recording_timeline_from_bins(bin_df)
-    output_polarities = requested_event_polarities(
-        _polarity_from_amp_bins(bin_df)
-    )
+    inferred_polarity = _polarity_from_amp_bins(bin_df)
+    output_polarities = requested_event_polarities(polarity or inferred_polarity)
     waveform_rows: list[dict] = []
     if waveform_csv and os.path.exists(waveform_csv):
         waveform_rows = _waveform_rows_from_csv(waveform_csv)
@@ -1813,6 +1728,7 @@ def replot_spike_amplitude_timecourse(
         output_polarities,
         overlay=bool(overlay),
         boundary_label=boundary_label,
+        channels=channels,
     )
     return {
         "csv_path": input_csv,
@@ -1820,6 +1736,234 @@ def replot_spike_amplitude_timecourse(
         "plot_paths": plot_paths,
         "warnings": [],
     }
+
+
+# =========================
+# Spike diagnostic figure replot (tab-4)
+# =========================
+
+
+def _channels_from_events_csv(events_csv: str) -> list[str]:
+    """Sorted unique channel names present in a spike_events.csv."""
+    if not os.path.exists(events_csv):
+        return []
+    try:
+        df = pd.read_csv(events_csv, usecols=["channel"])
+    except (ValueError, KeyError):
+        return []
+    return sorted(str(value) for value in df["channel"].dropna().unique())
+
+
+def replot_spike_diagnostic_outputs(
+    spike_events_csv: str,
+    out_dir: str | None = None,
+    plot_types: tuple[str, ...] = ("raster", "rate", "isi", "acg", "waveform"),
+    channels: list[str] | None = None,
+) -> dict:
+    """Replot raster/rate/ISI/ACG/average-waveform diagnostic figures from spike_events.csv.
+
+    Reads the input-adjacent spike_events.csv plus the per-recording average-waveform
+    CSVs written by the processing step. One figure per diagnostic type per selected
+    channel, with recordings concatenated along continuous time (raster/rate) or
+    pooled (ISI/ACG/average waveform).
+
+    plot_types: subset of ("raster", "rate", "isi", "acg", "waveform").
+    channels: restrict figures to these channel names; None plots all channels.
+    """
+    if not os.path.exists(spike_events_csv):
+        return {"plot_paths": [], "warnings": [f"Spike events CSV not found: {spike_events_csv}"]}
+    events_csv = spike_events_csv
+    data_dir = os.path.dirname(events_csv) or "."
+    out_dir = out_dir or data_dir
+    diagnostic_dir = os.path.join(out_dir, "spike_diagnostics")
+    event_dir = os.path.join(diagnostic_dir, "spike_diagnostics")
+    os.makedirs(event_dir, exist_ok=True)
+
+    events = pd.read_csv(events_csv)
+    if events.empty:
+        return {"plot_paths": [], "warnings": ["Empty spike events CSV."]}
+    for column in ("recording_name", "channel", "spike_time_s", "polarity_short", "recording_relative_spike_time_s"):
+        if column not in events:
+            return {"plot_paths": [], "warnings": [f"spike_events.csv missing required column: {column}"]}
+    events["recording_name"] = events["recording_name"].astype(str)
+    events["channel"] = events["channel"].astype(str)
+    events["spike_time_s"] = pd.to_numeric(events["spike_time_s"], errors="coerce")
+    events["recording_relative_spike_time_s"] = pd.to_numeric(
+        events["recording_relative_spike_time_s"], errors="coerce"
+    )
+    if "polarity_short" in events:
+        events["polarity_short"] = events["polarity_short"].astype(str)
+
+    selected_channels = _channels_from_events_csv(events_csv)
+    if channels:
+        selected_channels = [c for c in selected_channels if c in set(channels)]
+
+    allowed = {t for t in plot_types}
+    plot_paths: list[str] = []
+    warnings: list[str] = []
+
+    for channel in selected_channels:
+        channel_events = events[events["channel"] == channel].copy()
+        if channel_events.empty:
+            continue
+        for kind in ("raster", "rate", "isi", "acg"):
+            if kind in allowed:
+                path = _plot_diagnostic_channel_figure(
+                    event_dir, kind, channel, channel_events
+                )
+                if path:
+                    plot_paths.append(path)
+        if "waveform" in allowed:
+            path = _plot_average_waveform_channel_figure(data_dir, out_dir, channel)
+            if path:
+                plot_paths.append(path)
+
+    if not plot_paths:
+        warnings.append("No diagnostic figures generated for the selected channels/types.")
+    return {"plot_paths": plot_paths, "warnings": warnings}
+
+
+def _plot_diagnostic_channel_figure(
+    fig_dir: str,
+    kind: str,
+    channel: str,
+    events: pd.DataFrame,
+) -> str:
+    """Draw one diagnostic figure (raster/rate/isi/acg) for a channel into fig_dir."""
+    polarity_shorts = sorted(
+        str(p) for p in events["polarity_short"].dropna().unique() if p in EVENT_POLARITY_LABELS
+    )
+    fig, ax = plt.subplots(figsize=(11, 6))
+    cursor = 0.0
+    recording_bounds: list[tuple[float, str]] = []
+    event_row = 0
+    for rec_name, sub in events.groupby("recording_name", sort=False):
+        rel = sub["recording_relative_spike_time_s"].dropna().to_numpy(dtype=float)
+        if rel.size == 0:
+            continue
+        dur = float(rel.max() - rel.min()) if rel.size > 1 else 0.0
+        if dur <= 0:
+            dur = 1.0
+        recording_bounds.append((cursor, rec_name))
+        start = cursor
+        cursor += dur
+        if kind == "raster":
+            pol_arr = sub["polarity_short"].dropna().astype(str).to_numpy(dtype=str)
+            rel_full = sub["recording_relative_spike_time_s"].dropna().to_numpy(dtype=float)
+            for idx, (t, polarity_short) in enumerate(zip(rel_full, pol_arr)):
+                color = EVENT_POLARITY_COLORS.get(polarity_short, "tab:gray")
+                ax.vlines(start + float(t), event_row + 0.5, event_row + 1.5, color=color, linewidth=0.6)
+                event_row += 1
+        if kind == "rate":
+            rate_bin_s = float(SPIKE_RATE_BIN_S)
+            edges = np.arange(rel.min(), rel.max() + rate_bin_s, rate_bin_s)
+            centers = edges[:-1] + rate_bin_s / 2.0
+            for polarity_short in polarity_shorts:
+                pol_rel = sub.loc[sub["polarity_short"].astype(str) == polarity_short, "recording_relative_spike_time_s"].to_numpy(dtype=float)
+                pol_counts, _ = np.histogram(pol_rel, bins=edges)
+                ax.plot(
+                    start + centers,
+                    pol_counts,
+                    color=EVENT_POLARITY_COLORS.get(polarity_short, "tab:gray"),
+                    label=f"{EVENT_POLARITY_LABELS[polarity_short]} (per {rate_bin_s:g}s)",
+                    linewidth=1.4,
+                )
+
+    if kind == "raster":
+        ax.set_ylabel("Event index")
+        ax.set_ylim(0, event_row + 1)
+        ax.set_title(f"Spike raster - {channel}")
+    elif kind == "rate":
+        ax.set_ylabel("Spike rate (Hz)")
+        ax.set_title(f"Spike rate - {channel}")
+        ax.legend(loc="best", fontsize=8)
+    elif kind == "isi":
+        rel = events["recording_relative_spike_time_s"].dropna().to_numpy(dtype=float)
+        rel = np.sort(rel)
+        d = np.diff(rel)
+        d = d[d > 0] * 1000.0
+        if d.size:
+            ax.hist(d, bins=40, color="tab:blue", alpha=0.7)
+            ax.set_xlabel("Inter-spike interval (ms)")
+            ax.set_ylabel("Count")
+        ax.set_title(f"Inter-spike interval - {channel}")
+    elif kind == "acg":
+        rel = events["recording_relative_spike_time_s"].dropna().to_numpy(dtype=float)
+        centers, counts = spike_autocorrelogram(rel)
+        if centers.size:
+            ax.vlines(centers, 0, counts, color="tab:blue", linewidth=1.2)
+            ax.set_xlabel("Lag (ms)")
+            ax.set_ylabel("Count")
+        ax.set_title(f"Autocorrelogram - {channel}")
+
+    for start, rec_name in recording_bounds:
+        ax.axvline(start, color="black", linestyle="--", linewidth=0.8, alpha=0.4)
+        if recording_bounds and start == recording_bounds[0][0]:
+            continue
+        ax.text(start, 0.98, rec_name, transform=ax.get_xaxis_transform(), ha="left", va="top", fontsize=7, rotation=90)
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    safe_ch = _safe_name(channel)
+    path = os.path.join(fig_dir, f"spike_{kind}_{safe_ch}.png")
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def _plot_average_waveform_channel_figure(data_dir: str, out_dir: str, channel: str) -> str:
+    """Pool per-recording average-waveform CSVs for a channel and draw mean+SEM."""
+    import glob
+
+    wave_dir = os.path.join(data_dir, "spike_diagnostics", "average_waveforms")
+    pattern = os.path.join(wave_dir, f"*__{_safe_name(channel)}__*_average_waveform.csv")
+    rel_ms: np.ndarray | None = None
+    means: list[np.ndarray] = []
+    sems: list[np.ndarray] = []
+    ns: list[float] = []
+    for path in glob.glob(pattern):
+        df = pd.read_csv(path)
+        if {"time_ms", "mean_waveform_uv"}.issubset(df.columns):
+            rel_ms = df["time_ms"].to_numpy(dtype=float)
+            mean = df["mean_waveform_uv"].to_numpy(dtype=float)
+            sem = df["sem_waveform_uv"].to_numpy(dtype=float) if "sem_waveform_uv" in df else np.zeros_like(mean)
+            n = float(int(df["n_spikes_used"].iloc[0])) if "n_spikes_used" in df else 1.0
+            means.append(mean)
+            sems.append(sem)
+            ns.append(n)
+    if rel_ms is None or not means:
+        return ""
+    x = rel_ms
+    y = np.average(np.vstack(means), axis=0, weights=ns)
+    pooled_sem = np.sqrt(
+        np.average(np.square(np.vstack(sems)), axis=0, weights=ns)
+    ) if ns else np.zeros_like(x)
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.plot(x, y, color="tab:blue", linewidth=2.0)
+    ax.fill_between(x, y - pooled_sem, y + pooled_sem, color="tab:blue", alpha=0.25)
+    ax.axvline(0.0, color="black", alpha=0.35, linewidth=1)
+    ax.axhline(0.0, color="black", alpha=0.35, linewidth=1)
+    ax.set_xlabel("Time relative to peak/trough (ms)")
+    ax.set_ylabel("Voltage (µV)")
+    ax.set_title(f"Average spike waveform (mean±SEM) - {channel}")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+    fig_dir = os.path.join(out_dir, "spike_diagnostics", "spike_diagnostics")
+    os.makedirs(fig_dir, exist_ok=True)
+    path = os.path.join(fig_dir, f"spike_average_waveform_{_safe_name(channel)}.png")
+    fig.savefig(path, dpi=200)
+    plt.close(fig)
+    return path
+
+
+def _channels_from_amp_csv(input_csv: str) -> list[str]:
+    """Sorted unique channel names present in a spike-amplitude time-course CSV."""
+    if not os.path.exists(input_csv):
+        return []
+    try:
+        bin_df = pd.read_csv(input_csv, usecols=["channel"])
+    except (ValueError, KeyError):
+        return []
+    return sorted(str(value) for value in bin_df["channel"].dropna().unique())
 
 
 def _polarity_from_amp_bins(bin_df: pd.DataFrame) -> str | None:
@@ -2010,7 +2154,6 @@ def process_csvs(
     plot_spike_amplitude_change=False,
     overlay_spike_amplitudes=False,
     spike_amplitude_boundary_label=None,
-    export_spike_events=False,
     spike_events_path=None,
     recording_metadata_by_path=None,
     return_outputs=False,
@@ -2035,7 +2178,6 @@ def process_csvs(
     metadata_lookup = _normalise_metadata_lookup(recording_metadata_by_path)
     results_rows = []
     spike_event_rows = []
-    plot_payload = {}
     diagnostic_output_rows = []
     waveform_summary_rows = []
     amplitude_recording_rows: list[dict] = []
@@ -2133,7 +2275,9 @@ def process_csvs(
                 )
             )
             amplitude_waveform_rows.extend(spike_amplitude_waveform_rows(ch, phase_group, details))
-            outputs, waveform_summaries = write_spike_diagnostic_outputs(out_dir, rec_name, ch, t, details)
+            outputs, waveform_summaries = write_spike_diagnostic_outputs(
+                out_dir, rec_name, ch, details
+            )
             diagnostic_output_rows.extend(outputs)
             for waveform_summary in waveform_summaries:
                 waveform_summary.update(
@@ -2149,12 +2293,11 @@ def process_csvs(
                 )
                 waveform_summary_rows.append(waveform_summary)
 
-            if export_spike_events:
-                for event_index, sample_index in enumerate(peaks, start=1):
-                    spike_time = float(details["spike_times"][event_index - 1])
-                    polarity_short = str(details["event_polarity"][event_index - 1])
-                    spike_event_rows.append(
-                        {
+            for event_index, sample_index in enumerate(peaks, start=1):
+                spike_time = float(details["spike_times"][event_index - 1])
+                polarity_short = str(details["event_polarity"][event_index - 1])
+                spike_event_rows.append(
+                    {
                             "recording_index": rec_idx,
                             "recording_order": rec_idx,
                             "preparation_id": preparation_id,
@@ -2207,7 +2350,6 @@ def process_csvs(
             sample_interval_s = 1.0 / float(fs) if np.isfinite(fs) and fs > 0 else 0.0
             window_bounds = folded_window_bounds(t0, t1, selected_window_sec, sample_interval_s)
 
-            block_rows = []
             for w, (a, b) in enumerate(window_bounds):
                 cnt = int(np.sum((spike_times >= a) & (spike_times < b)))
                 start_min = (a - t0) / 60.0
@@ -2254,20 +2396,6 @@ def process_csvs(
                         }
                     )
                 results_rows.append(row)
-                block_rows.append(row)
-
-            plot_block = sorted(block_rows, key=lambda r: r["window_index"])
-            if len(plot_block) > 1:
-                plot_block = plot_block[:-1]
-
-            if ch not in plot_payload:
-                plot_payload[ch] = []
-
-            plot_payload[ch].append({
-                "recording_index": rec_idx,
-                "recording_name": rec_name,
-                "rows": plot_block,
-            })
 
     if not results_rows:
         raise RuntimeError("No spike-count results were generated.")
@@ -2281,9 +2409,8 @@ def process_csvs(
     out_csv = os.path.join(out_dir, out_name)
     out_table.to_csv(out_csv, index=False)
 
-    if export_spike_events:
-        events_csv = spike_events_path or os.path.join(out_dir, "spike_events.csv")
-        event_columns = [
+    events_csv = spike_events_path or os.path.join(out_dir, "spike_events.csv")
+    event_columns = [
             "recording_index",
             "recording_order",
             "preparation_id",
@@ -2327,91 +2454,8 @@ def process_csvs(
             "qc_reason",
             "source_file",
         ]
-        pd.DataFrame(spike_event_rows, columns=event_columns).to_csv(events_csv, index=False)
-        print(f"[events] wrote threshold-crossing MUA spike events:\n  {events_csv}")
-
-    for ch, blocks in plot_payload.items():
-        fig, ax = plt.subplots(figsize=(16, 5))
-
-        x_cursor = 0
-        x_all = []
-        y_all = []
-        xticks = []
-        xticklabels = []
-        boundary_x_positions = []
-        recording_text_positions = []
-
-        for block in blocks:
-            rows = block["rows"]
-            rec_name = block["recording_name"]
-            n = len(rows)
-            if n == 0:
-                continue
-
-            x_local = np.arange(x_cursor, x_cursor + n)
-            y_local = [r["spike_count"] for r in rows]
-
-            x_all.extend(x_local.tolist())
-            y_all.extend(y_local)
-            xticks.extend(x_local.tolist())
-            xticklabels.extend([format_window_axis_value(int(r["window_index"]), selected_window_sec) for r in rows])
-            recording_text_positions.append((x_cursor + (n - 1) / 2.0, rec_name))
-
-            if x_cursor > 0:
-                boundary_x_positions.append(x_cursor - 0.5)
-            x_cursor += n
-
-        if x_all:
-            ax.plot(
-                x_all,
-                y_all,
-                marker=TRACE_MARKER,
-                linewidth=TRACE_LINEWIDTH,
-                color=TRACE_COLOR,
-                label=ch,
-            )
-
-        for bx in boundary_x_positions:
-            ax.axvline(x=bx, linestyle="--", color="black", alpha=0.7)
-
-        y_top_for_text = max(y_all) if y_all else 1
-        y_top_for_text = max(y_top_for_text, 1)
-
-        for xpos, rec_name in recording_text_positions:
-            ax.text(
-                xpos,
-                y_top_for_text * 1.08,
-                rec_name,
-                ha="center",
-                va="bottom",
-                fontsize=9,
-                weight="bold",
-            )
-
-        ax.set_title(f"Spike count per {selected_window_min:g}-minute window - {ch}")
-        ax.set_ylabel("Spike count")
-        ax.set_xlabel("Continuous time (min across ordered recordings)")
-        ax.set_ylim(bottom=0)
-
-        if xticks:
-            ax.set_xticks(xticks)
-            ax.set_xticklabels(xticklabels, rotation=45, ha="right")
-
-        trace_handle = [Line2D([0], [0], color=TRACE_COLOR, marker=TRACE_MARKER, linewidth=TRACE_LINEWIDTH, label="Spike count")]
-        boundary_handle = []
-        if boundary_x_positions:
-            boundary_handle = [Line2D([0], [0], color="black", linestyle="--", label="Recording boundary")]
-
-        legend1 = ax.legend(handles=trace_handle, loc="upper left", title="Trace")
-        ax.add_artist(legend1)
-        if boundary_handle:
-            legend2 = ax.legend(handles=boundary_handle, loc="upper right", title="Recording boundaries")
-            ax.add_artist(legend2)
-
-        plt.tight_layout()
-        out_png = os.path.join(out_dir, f"ALL_RECORDINGS__{ch}__continuous_spike_count_curve.png")
-        plt.savefig(out_png, dpi=200)
-        plt.close(fig)
+    pd.DataFrame(spike_event_rows, columns=event_columns).to_csv(events_csv, index=False)
+    print(f"[events] wrote threshold-crossing MUA spike events:\n  {events_csv}")
 
     amplitude_outputs = build_spike_amplitude_timecourse_outputs(
         out_dir,
@@ -2421,7 +2465,7 @@ def process_csvs(
         selected_polarity,
         overlay=overlay_spike_amplitudes,
         boundary_label=spike_amplitude_boundary_label,
-        plot_figures=bool(plot_spike_amplitude_change),
+        plot_figures=False,
     )
     if amplitude_outputs.get("csv_path"):
         diagnostic_output_rows.append(
@@ -2497,6 +2541,7 @@ def process_csvs(
     print(f"\n[done] wrote:\n  {out_csv}\n  plots in: {out_dir}")
     outputs_info = {
         "spike_count_csv": out_csv,
+        "spike_events_csv": events_csv,
         "spike_diagnostic_outputs_csv": diagnostics_csv,
         "spike_waveform_summary_csv": waveform_summary_csv,
         "spike_amplitude_timecourse_csv": str(amplitude_outputs.get("csv_path") or ""),

@@ -241,7 +241,6 @@ class SpikePolarityWaveformTests(unittest.TestCase):
             out_dir=str(out_dir),
             window_sec=0.2,
             polarity="both",
-            export_spike_events=True,
             classification_window_ms=0.5,
         )
 
@@ -259,9 +258,9 @@ class SpikePolarityWaveformTests(unittest.TestCase):
 
         summary = pd.read_csv(out_dir / "spike_waveform_summary.csv")
         self.assertEqual(set(summary["polarity"]), {"positive", "negative"})
-        self.assertTrue((out_dir / "spike_diagnostics" / "average_waveforms" / "spikes__A-001__positive_average_waveform.png").exists())
-        self.assertTrue((out_dir / "spike_diagnostics" / "average_waveforms" / "spikes__A-001__negative_average_waveform.png").exists())
-        self.assertFalse((out_dir / "spike_diagnostics" / "average_waveforms" / "spikes__A-001__average_waveform.png").exists())
+        self.assertTrue((out_dir / "spike_diagnostics" / "average_waveforms" / "spikes__A-001__positive_average_waveform.csv").exists())
+        self.assertTrue((out_dir / "spike_diagnostics" / "average_waveforms" / "spikes__A-001__negative_average_waveform.csv").exists())
+        self.assertFalse((out_dir / "spike_diagnostics" / "average_waveforms" / "spikes__A-001__average_waveform.csv").exists())
 
         pos_csv = summary.loc[summary["polarity"] == "positive", "waveform_csv"].iloc[0]
         neg_csv = summary.loc[summary["polarity"] == "negative", "waveform_csv"].iloc[0]
@@ -287,7 +286,6 @@ class SpikePolarityWaveformTests(unittest.TestCase):
             out_dir=str(out_dir),
             window_sec=0.2,
             polarity="pos",
-            export_spike_events=True,
             classification_window_ms=0.5,
         )
 
@@ -376,7 +374,75 @@ class SpikePolarityWaveformTests(unittest.TestCase):
         self.assertTrue(all(path.endswith("_overlay.png") for path in out["plot_paths"]))
         self.assertTrue(all(Path(path).exists() for path in out["plot_paths"]))
 
-    def test_phase_normalization_uses_epoch_labels_with_post_treatment_as_post(self) -> None:
+    def test_processing_writes_no_pngs_and_always_exports_spike_events(self) -> None:
+        t, x = synthetic_trace(duration_s=0.2)
+        x[500] = 135.0
+        x[1000] = -145.0
+        csv_path = self.root / "no_diag" / "rec.csv"
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame({"time_s": t, "A-001": x}).to_csv(csv_path, index=False)
+        out_dir = self.root / "no_diag_out"
+
+        out = self.module.process_csvs(
+            [str(csv_path)],
+            out_dir=str(out_dir),
+            window_sec=0.2,
+            polarity="both",
+            classification_window_ms=0.5,
+            return_outputs=True,
+        )
+        self.assertTrue(Path(out["spike_events_csv"]).exists())
+        events = pd.read_csv(out["spike_events_csv"])
+        self.assertEqual(set(events["polarity_short"]), {"pos", "neg"})
+        diag_dir = Path(out["spike_diagnostic_outputs_csv"]).parent
+        png_files = list(diag_dir.rglob("*.png"))
+        self.assertEqual(png_files, [])
+        summary = pd.read_csv(out["spike_waveform_summary_csv"])
+        self.assertEqual(set(summary["polarity"]), {"positive", "negative"})
+        self.assertTrue(all(Path(p).exists() for p in summary["waveform_csv"]))
+
+        replot = self.module.replot_spike_diagnostic_outputs(
+            out["spike_events_csv"],
+            out_dir=str(self.root / "diag_replot"),
+            plot_types=("raster", "rate", "isi", "acg", "waveform"),
+            channels=["A-001"],
+        )
+        plot_paths = [Path(p) for p in replot["plot_paths"]]
+        expected = {
+            "spike_raster_A-001",
+            "spike_rate_A-001",
+            "spike_isi_A-001",
+            "spike_acg_A-001",
+            "spike_average_waveform_A-001",
+        }
+        self.assertEqual({p.stem for p in plot_paths}, expected)
+        self.assertTrue(all(p.exists() for p in plot_paths))
+        self.assertEqual(self.module._channels_from_events_csv(out["spike_events_csv"]), ["A-001"])
+
+    def test_replot_spike_amplitude_timecourse_filters_channels_and_polarity(self) -> None:
+        recordings, events, waveforms = amplitude_fixture()
+        out = self.module.build_spike_amplitude_timecourse_outputs(
+            str(self.root / "amp"),
+            recordings,
+            events,
+            waveforms,
+            requested_polarity="both",
+            overlay=False,
+        )
+        selected = self.module.replot_spike_amplitude_timecourse(
+            out["csv_path"],
+            waveform_csv=out["waveform_csv_path"],
+            out_dir=str(self.root / "replot"),
+            channels=["A-001"],
+            polarity="neg",
+        )
+        paths = [Path(p) for p in selected["plot_paths"]]
+        self.assertEqual(len(paths), 1)
+        self.assertTrue(paths[0].name.startswith("A-001__"))
+        self.assertIn("negative", paths[0].name)
+        self.assertTrue(paths[0].exists())
+
+        self.assertEqual(self.module._channels_from_amp_csv(out["csv_path"]), ["A-001", "A-002"])
         self.assertEqual(self.module.normalize_amplitude_phase(epoch_label="Baseline")[0], "baseline")
         self.assertEqual(self.module.normalize_amplitude_phase(epoch_label="Before recording")[0], "baseline")
         self.assertEqual(self.module.normalize_amplitude_phase(epoch_label="pre")[0], "baseline")

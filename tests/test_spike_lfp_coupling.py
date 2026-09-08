@@ -118,7 +118,6 @@ class SpikeLFPCouplingTests(unittest.TestCase):
             out_dir=str(out_dir),
             window_sec=1.0,
             polarity="both",
-            export_spike_events=True,
             spike_events_path=str(stale_events),
             recording_metadata=[
                 {
@@ -141,9 +140,10 @@ class SpikeLFPCouplingTests(unittest.TestCase):
         self.assertIn("script_sha256", provenance)
         waveform_summary = pd.read_csv(first["spike_waveform_summary_csv"])
         self.assertFalse(waveform_summary.empty)
-        self.assertTrue(Path(waveform_summary.iloc[0]["waveform_plot"]).exists())
+        self.assertTrue(Path(waveform_summary.iloc[0]["waveform_csv"]).exists())
         diagnostic_outputs = pd.read_csv(first["spike_diagnostic_outputs_csv"])
-        self.assertIn("negative_average_waveform_plot", set(diagnostic_outputs["output_type"]))
+        self.assertIn("negative_average_waveform_csv", set(diagnostic_outputs["output_type"]))
+        self.assertFalse(any(str(t).endswith("_plot") for t in diagnostic_outputs["output_type"]))
 
     def test_pairing_modes_same_channel_and_all_to_all(self) -> None:
         cfg = SpikeLFPCouplingConfig(pairing_mode="same_channel")
