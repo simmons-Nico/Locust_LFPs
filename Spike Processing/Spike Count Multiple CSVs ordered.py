@@ -1703,6 +1703,7 @@ def build_spike_amplitude_timecourse_outputs(
     requested_polarity: str | None,
     overlay: bool = False,
     boundary_label: str | None = None,
+    plot_figures: bool = True,
 ) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     output_polarities = requested_event_polarities(requested_polarity)
@@ -1714,6 +1715,96 @@ def build_spike_amplitude_timecourse_outputs(
 
     csv_path = os.path.join(out_dir, "spike_amplitude_time_course.csv")
     pd.DataFrame(bin_df, columns=SPIKE_AMPLITUDE_TIMECOURSE_COLUMNS).to_csv(csv_path, index=False)
+    waveform_csv_path = os.path.join(out_dir, "spike_amplitude_waveforms.csv")
+    _write_amplitude_waveform_csv(waveform_csv_path, waveform_rows)
+    plot_paths: list[str] = []
+    if plot_figures:
+        plot_paths = _plot_spike_amplitude_timecourse_figures(
+            out_dir,
+            bin_df,
+            rec_df,
+            waveform_rows,
+            output_polarities,
+            overlay=bool(overlay),
+            boundary_label=boundary_label,
+        )
+    return {
+        "csv_path": csv_path,
+        "waveform_csv_path": waveform_csv_path,
+        "plot_paths": plot_paths,
+        "warnings": warnings,
+    }
+
+
+AMPLITUDE_WAVEFORM_CSV_COLUMNS = [
+    "channel",
+    "phase_group",
+    "polarity_short",
+    "n_spikes",
+    "rel_ms",
+    "mean_waveform_uv",
+    "sem_waveform_uv",
+]
+
+
+def _write_amplitude_waveform_csv(path: str, waveform_rows: list[dict], include_sem: bool = True) -> str:
+    """Persist per (channel, phase_group, polarity) mean waveforms for later replotting."""
+    grouped: dict[str, dict] = {}
+    for row in waveform_rows:
+        channel = str(row.get("channel", ""))
+        phase_group = str(row.get("phase_group", ""))
+        polarity_short = str(row.get("polarity_short", ""))
+        key = (channel, phase_group, polarity_short)
+        grouped.setdefault(key, []).append(row)
+
+    rows: list[dict] = []
+    for (channel, phase_group, polarity_short), records in sorted(grouped.items()):
+        rel_ms, waveforms = _waveform_bucket(records)
+        if rel_ms is None or waveforms is None or waveforms.shape[0] == 0:
+            continue
+        mean = np.nanmean(waveforms, axis=0)
+        if include_sem and waveforms.shape[0] > 1:
+            sem = np.nanstd(waveforms, axis=0, ddof=1) / math.sqrt(waveforms.shape[0])
+        else:
+            sem = np.zeros_like(mean)
+        rows.append(
+            {
+                "channel": channel,
+                "phase_group": phase_group,
+                "polarity_short": polarity_short,
+                "n_spikes": int(waveforms.shape[0]),
+                "rel_ms": ",".join(f"{v:.6g}" for v in rel_ms),
+                "mean_waveform_uv": ",".join(f"{v:.6g}" for v in mean),
+                "sem_waveform_uv": ",".join(f"{v:.6g}" for v in sem),
+            }
+        )
+    pd.DataFrame(rows, columns=AMPLITUDE_WAVEFORM_CSV_COLUMNS).to_csv(path, index=False)
+    return path
+
+
+def replot_spike_amplitude_timecourse(
+    input_csv: str,
+    waveform_csv: str | None = None,
+    out_dir: str | None = None,
+    boundary_label: str | None = None,
+    overlay: bool = False,
+) -> dict:
+    """Replot spike-amplitude change-from-baseline figures from persisted time-course CSVs."""
+    import os
+
+    bin_df = pd.read_csv(input_csv)
+    if bin_df.empty:
+        return {"plot_paths": [], "warnings": ["Empty amplitude time-course CSV."]}
+    os.makedirs(out_dir or os.path.dirname(input_csv) or ".", exist_ok=True)
+    out_dir = out_dir or os.path.dirname(input_csv) or "."
+    boundary_label = (boundary_label or DEFAULT_UNRECORDED_TREATMENT_LABEL).strip() or DEFAULT_UNRECORDED_TREATMENT_LABEL
+    rec_df = _recording_timeline_from_bins(bin_df)
+    output_polarities = requested_event_polarities(
+        _polarity_from_amp_bins(bin_df)
+    )
+    waveform_rows: list[dict] = []
+    if waveform_csv and os.path.exists(waveform_csv):
+        waveform_rows = _waveform_rows_from_csv(waveform_csv)
     plot_paths = _plot_spike_amplitude_timecourse_figures(
         out_dir,
         bin_df,
@@ -1724,10 +1815,68 @@ def build_spike_amplitude_timecourse_outputs(
         boundary_label=boundary_label,
     )
     return {
-        "csv_path": csv_path,
+        "csv_path": input_csv,
+        "waveform_csv_path": waveform_csv or "",
         "plot_paths": plot_paths,
-        "warnings": warnings,
+        "warnings": [],
     }
+
+
+def _polarity_from_amp_bins(bin_df: pd.DataFrame) -> str | None:
+    if bin_df.empty or "polarity_short" not in bin_df:
+        return None
+    present = sorted(str(value) for value in bin_df["polarity_short"].dropna().unique())
+    if len(present) == 2 and "pos" in present and "neg" in present:
+        return "both"
+    return present[0] if present else None
+
+
+def _recording_timeline_from_bins(bin_df: pd.DataFrame) -> pd.DataFrame:
+    """Reconstruct a recording timeline (continuous start/end per channel) from bin rows."""
+    if bin_df.empty:
+        return pd.DataFrame()
+    rows: list[dict] = []
+    group_cols = [col for col in ("channel", "recording_order", "recording_name") if col in bin_df.columns]
+    for _key, sub in bin_df.groupby(group_cols, sort=False):
+        first = sub.sort_values("continuous_bin_start_min").iloc[0]
+        start_min = pd.to_numeric(sub["continuous_bin_start_min"], errors="coerce").min()
+        end_min = pd.to_numeric(sub["continuous_bin_end_min"], errors="coerce").max()
+        rows.append(
+            {
+                "channel": str(first.get("channel", "")),
+                "recording_order": int(first.get("recording_order", 1)),
+                "recording_name": str(first.get("recording_name", "")),
+                "epoch_label": str(first.get("epoch_label", "") or ""),
+                "phase": str(first.get("phase", "") or ""),
+                "phase_group": str(first.get("phase_group", "") or ""),
+                "normalized_phase": str(first.get("normalized_phase", "") or ""),
+                "recording_start_continuous_s": float(start_min) * 60.0 if np.isfinite(start_min) else np.nan,
+                "recording_end_continuous_s": float(end_min) * 60.0 if np.isfinite(end_min) else np.nan,
+                "recording_duration_s": (float(end_min) - float(start_min)) * 60.0 if np.isfinite(start_min) and np.isfinite(end_min) else np.nan,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _waveform_rows_from_csv(waveform_csv: str) -> list[dict]:
+    """Load persisted mean waveforms back into per-group waveform rows for plotting."""
+    df = pd.read_csv(waveform_csv)
+    rows: list[dict] = []
+    for row in df.itertuples(index=False):
+        rel_ms = np.array([float(value) for value in str(getattr(row, "rel_ms", "")).split(",") if value])
+        mean = np.array([float(value) for value in str(getattr(row, "mean_waveform_uv", "")).split(",") if value])
+        if rel_ms.size == 0 or mean.size == 0 or rel_ms.size != mean.size:
+            continue
+        rows.append(
+            {
+                "channel": str(getattr(row, "channel", "")),
+                "phase_group": str(getattr(row, "phase_group", "")),
+                "polarity_short": str(getattr(row, "polarity_short", "")),
+                "waveform": mean,
+                "rel_ms": rel_ms,
+            }
+        )
+    return rows
 
 
 # =========================
@@ -1954,37 +2103,36 @@ def process_csvs(
             negative_times = spike_times[event_polarities == "neg"] if spike_times.size else np.array([], dtype=float)
             n_positive_total = int(details.get("n_positive", positive_times.size))
             n_negative_total = int(details.get("n_negative", negative_times.size))
-            if plot_spike_amplitude_change:
-                recording_key = f"{rec_idx}::{ch}"
-                amplitude_recording_rows.append(
-                    spike_amplitude_recording_row(
-                        recording_key=recording_key,
-                        rec_idx=rec_idx,
-                        rec_name=rec_name,
-                        channel=ch,
-                        epoch_label=epoch_label,
-                        phase=phase,
-                        phase_group=phase_group,
-                        phase_warning_reason=phase_warning_reason,
-                        t_s=t,
-                        fs=fs,
-                    )
+            recording_key = f"{rec_idx}::{ch}"
+            amplitude_recording_rows.append(
+                spike_amplitude_recording_row(
+                    recording_key=recording_key,
+                    rec_idx=rec_idx,
+                    rec_name=rec_name,
+                    channel=ch,
+                    epoch_label=epoch_label,
+                    phase=phase,
+                    phase_group=phase_group,
+                    phase_warning_reason=phase_warning_reason,
+                    t_s=t,
+                    fs=fs,
                 )
-                amplitude_event_rows.extend(
-                    spike_amplitude_event_rows(
-                        recording_key=recording_key,
-                        rec_idx=rec_idx,
-                        rec_name=rec_name,
-                        channel=ch,
-                        epoch_label=epoch_label,
-                        phase=phase,
-                        phase_group=phase_group,
-                        phase_warning_reason=phase_warning_reason,
-                        t0=t0,
-                        details=details,
-                    )
+            )
+            amplitude_event_rows.extend(
+                spike_amplitude_event_rows(
+                    recording_key=recording_key,
+                    rec_idx=rec_idx,
+                    rec_name=rec_name,
+                    channel=ch,
+                    epoch_label=epoch_label,
+                    phase=phase,
+                    phase_group=phase_group,
+                    phase_warning_reason=phase_warning_reason,
+                    t0=t0,
+                    details=details,
                 )
-                amplitude_waveform_rows.extend(spike_amplitude_waveform_rows(ch, phase_group, details))
+            )
+            amplitude_waveform_rows.extend(spike_amplitude_waveform_rows(ch, phase_group, details))
             outputs, waveform_summaries = write_spike_diagnostic_outputs(out_dir, rec_name, ch, t, details)
             diagnostic_output_rows.extend(outputs)
             for waveform_summary in waveform_summaries:
@@ -2265,37 +2413,46 @@ def process_csvs(
         plt.savefig(out_png, dpi=200)
         plt.close(fig)
 
-    if plot_spike_amplitude_change:
-        amplitude_outputs = build_spike_amplitude_timecourse_outputs(
-            out_dir,
-            amplitude_recording_rows,
-            amplitude_event_rows,
-            amplitude_waveform_rows,
-            selected_polarity,
-            overlay=overlay_spike_amplitudes,
-            boundary_label=spike_amplitude_boundary_label,
+    amplitude_outputs = build_spike_amplitude_timecourse_outputs(
+        out_dir,
+        amplitude_recording_rows,
+        amplitude_event_rows,
+        amplitude_waveform_rows,
+        selected_polarity,
+        overlay=overlay_spike_amplitudes,
+        boundary_label=spike_amplitude_boundary_label,
+        plot_figures=bool(plot_spike_amplitude_change),
+    )
+    if amplitude_outputs.get("csv_path"):
+        diagnostic_output_rows.append(
+            {
+                "recording_name": "ALL_RECORDINGS",
+                "channel": "ALL_CHANNELS",
+                "output_type": "spike_amplitude_time_course_csv",
+                "path": amplitude_outputs["csv_path"],
+            }
         )
-        if amplitude_outputs.get("csv_path"):
-            diagnostic_output_rows.append(
-                {
-                    "recording_name": "ALL_RECORDINGS",
-                    "channel": "ALL_CHANNELS",
-                    "output_type": "spike_amplitude_time_course_csv",
-                    "path": amplitude_outputs["csv_path"],
-                }
-            )
-            print(f"[amplitude] wrote spike-amplitude time-course CSV:\n  {amplitude_outputs['csv_path']}")
-        for plot_path in amplitude_outputs.get("plot_paths", []):
-            diagnostic_output_rows.append(
-                {
-                    "recording_name": "ALL_RECORDINGS",
-                    "channel": "ALL_CHANNELS",
-                    "output_type": "spike_amplitude_time_course_plot",
-                    "path": plot_path,
-                }
-            )
-        for warning in amplitude_outputs.get("warnings", []):
-            print(f"[amplitude warning] {warning}")
+        print(f"[amplitude] wrote spike-amplitude time-course CSV:\n  {amplitude_outputs['csv_path']}")
+    if amplitude_outputs.get("waveform_csv_path"):
+        diagnostic_output_rows.append(
+            {
+                "recording_name": "ALL_RECORDINGS",
+                "channel": "ALL_CHANNELS",
+                "output_type": "spike_amplitude_waveforms_csv",
+                "path": amplitude_outputs["waveform_csv_path"],
+            }
+        )
+    for plot_path in amplitude_outputs.get("plot_paths", []):
+        diagnostic_output_rows.append(
+            {
+                "recording_name": "ALL_RECORDINGS",
+                "channel": "ALL_CHANNELS",
+                "output_type": "spike_amplitude_time_course_plot",
+                "path": plot_path,
+            }
+        )
+    for warning in amplitude_outputs.get("warnings", []):
+        print(f"[amplitude warning] {warning}")
 
     diagnostics_csv = os.path.join(out_dir, "spike_diagnostic_outputs.csv")
     pd.DataFrame(
@@ -2343,6 +2500,7 @@ def process_csvs(
         "spike_diagnostic_outputs_csv": diagnostics_csv,
         "spike_waveform_summary_csv": waveform_summary_csv,
         "spike_amplitude_timecourse_csv": str(amplitude_outputs.get("csv_path") or ""),
+        "spike_amplitude_waveforms_csv": str(amplitude_outputs.get("waveform_csv_path") or ""),
         "spike_amplitude_plot_paths": list(amplitude_outputs.get("plot_paths", [])),
         "spike_amplitude_qc_warnings": list(amplitude_outputs.get("warnings", [])),
     }
