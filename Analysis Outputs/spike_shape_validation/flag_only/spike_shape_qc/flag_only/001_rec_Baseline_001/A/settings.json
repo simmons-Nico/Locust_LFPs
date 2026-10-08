@@ -1,0 +1,13 @@
+{
+  "settings": {
+    "mode": "flag_only",
+    "separation_ms": 1.0,
+    "depth_fraction": 0.2,
+    "prominence_fraction": 0.2,
+    "noise_multiplier": 3.0,
+    "padding_ms": 0.5
+  },
+  "sampling_rate_hz": 20000.0000000022,
+  "method": "Bombcell-inspired per-event adaptation; not validated for locust spikes",
+  "source": "https://github.com/Julie-Fabre/bombcell/wiki/List-of-all-quality-metrics-and-parameters"
+}

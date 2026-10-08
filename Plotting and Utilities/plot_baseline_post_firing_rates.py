@@ -1,29 +1,20 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Publication-style Baseline / stimulation / Post firing-rate analysis.
+"""SPIE preparation/channel firing rates expressed as a percentage of baseline.
 
-Expected input columns:
-    recording_name, epoch_label, channel, window_index,
-    window_start_s, window_end_s, window_label, spike_count
+The default CLI delegates to preparation_spike_analysis: one file per specimen,
+final-20-minute Baseline reference, baseline at 100%, and independent-preparation
+current-intensity individual points and additional experimental time courses.
+Use --mode timeline for absolute-Hz and baseline-normalized treatment timelines
+with preparation-level mean +/- SEM and contributing n.
+Use --titles-file for custom titles; CSVs and figures go into CSVs/ and Plots/.
+Use --publication-file for current-response legend order, notes and export size.
+Run with --help for the supported arguments.
 
-What this script does:
-1. Loads a .csv, .xlsx, or .xls file.
-2. Computes firing rate as spike_count / window duration in Hz.
-3. Detects repeated stimulation + Post experiment parts after the initial Baseline.
-4. Collapses windows to one mean firing rate per recording/channel/phase.
-5. Splits Baseline into first/second halves for percent-change controls.
-6. Makes spike-frequency and percent-change plots for each experiment part.
-7. Runs paired tests vs Baseline and optional unpaired group tests.
-8. Saves PNG/SVG figures and CSV summaries.
-
-Run examples:
-    python plot_baseline_post_firing_rates.py
-    python plot_baseline_post_firing_rates.py --input-dir "C:\\path\\to\\folder"
-    python plot_baseline_post_firing_rates.py "C:\\path\\to\\processed_spike_counts.csv"
-    python plot_baseline_post_firing_rates.py "C:\\path\\to\\processed_spike_counts.xlsx"
-    python plot_baseline_post_firing_rates.py "C:\\path\\to\\processed_spike_counts.csv" --group-col treatment
+Historical analysis helpers below are retained for existing Python importers;
+they are not used by the current CLI or SPIE normalization workflow.
+See PREPARATION_SPIKE_ANALYSIS.md for input, statistical, and export conventions.
 """
 
 from __future__ import annotations
@@ -550,13 +541,13 @@ def configure_matplotlib() -> None:
             "figure.dpi": 120,
             "savefig.dpi": FIG_DPI,
             "font.family": "Arial",
-            "font.size": 10,
-            "axes.labelsize": 11,
-            "axes.titlesize": 12,
+            "font.size": 12,
+            "axes.labelsize": 14,
+            "axes.titlesize": 14,
             "axes.linewidth": 1.1,
-            "xtick.labelsize": 10,
-            "ytick.labelsize": 10,
-            "xtick.major.width": 1.0,
+            "xtick.labelsize": 12,
+            "ytick.labelsize": 12,
+            "xtick.major.width":1.0,
             "ytick.major.width": 1.0,
             "xtick.major.size": 4,
             "ytick.major.size": 4,
@@ -3689,7 +3680,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
+def legacy_main() -> None:
     args = parse_args()
     configure_matplotlib()
 
@@ -3875,6 +3866,12 @@ def main() -> None:
     print("Main summary CSV: baseline_post_summary.csv")
     if not channel_percent_changes.empty:
         print("Per-channel percent-change CSV: channel_percent_changes.csv")
+
+
+def main() -> None:
+    """Run preparation/channel normalization with baseline at 100%."""
+    from preparation_spike_analysis import cli
+    cli(default_mode="normalized")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,8 @@
+Rates are duration weighted. Baseline uses final 1200 seconds of labelled Baseline, shared by all Post epochs.
+Partial bins are weighted by overlap, assuming constant rate within a bin; gaps are not zero activity.
+Baseline summary is 100%; the complete baseline trace retains its variation.
+Group error bars: Mean ± SEM. SEM = sample SD (ddof=1) / sqrt(n independent preparations).
+SEM is not a confidence interval or standard deviation. SEM is missing for n < 2.
+Individual observations remain visible. Channels and time windows never increase independent n.
+Raw summaries match aligned window boundaries exactly. The lower strip reports contributing n at each window.
+Only manifest-listed files are current managed outputs; unrelated pre-existing files are untouched.

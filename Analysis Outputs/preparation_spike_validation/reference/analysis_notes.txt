@@ -1,0 +1,4 @@
+Rates are duration weighted. Baseline uses final 1200 seconds of labelled Baseline, shared by all Post epochs.
+Partial baseline bins are weighted by overlap, assuming constant rate within a bin. Missing intervals are not filled.
+Baseline epoch summary uses the final-20-minute reference (100%); whole_epoch_mean_rate_hz retains the full epoch mean.
+Raw means combine matching aligned window boundaries only. CI: pointwise Student t, independent preparations, not simultaneous.

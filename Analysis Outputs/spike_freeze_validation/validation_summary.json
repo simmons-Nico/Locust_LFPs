@@ -1,0 +1,17 @@
+{
+  "cause": "Amplitude-priority refractory suppression scanned every accepted spike for every candidate (quadratic work).",
+  "fix": "Refractory-sized spatial buckets check only the same and adjacent buckets, preserving priorities and boundaries.",
+  "real_data_elapsed_seconds": 76.61700060000294,
+  "polarity": "both",
+  "window_seconds": 60,
+  "counts": {
+    "Baseline Pt needle_260904": 68248,
+    "Post -100nA (1200s) (1)": 35250,
+    "Post -100nA (1200s)_260904": 36033
+  },
+  "events_total": 139531,
+  "validation": "Count totals match event CSV; 27 focused regression tests pass; four retained GUI panels initialize and open.",
+  "broader_tests": "36/38 passed. Two older experimental-timeline tests expect legends and n annotations omitted by the existing current-response publication renderer.",
+  "gui_removal": "Removed Experimental firing-rate time courses card, panel, timing configuration, state, and dispatch from tab 4.",
+  "input_order": "Alphabetical: baseline, post (1), post _260904. Both post files labelled Post for validation; no experimental timing assumed."
+}

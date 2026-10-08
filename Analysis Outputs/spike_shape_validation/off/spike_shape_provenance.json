@@ -1,0 +1,12 @@
+{
+  "shape_settings": {
+    "mode": "off",
+    "separation_ms": 1.0,
+    "depth_fraction": 0.2,
+    "prominence_fraction": 0.2,
+    "noise_multiplier": 3.0,
+    "padding_ms": 0.5
+  },
+  "audit_dirs": [],
+  "method": "Bombcell-inspired per-event adaptation; not validated for locust spikes"
+}

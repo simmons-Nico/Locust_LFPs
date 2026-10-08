@@ -1,0 +1,8 @@
+{
+  "cathodic_source": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\preparation_publication_validation\\double\\CSVs\\epoch_summaries.csv",
+  "cathodic_normalization": "Existing normalized_rate_pct preserved without recalculation",
+  "h2o2_concentration": null,
+  "h2o2_normalization": "100 * measurement_hz / same_locust_pre_h2o2_baseline_hz",
+  "h2o2_status": "Inputs pending",
+  "png_dpi": 600
+}

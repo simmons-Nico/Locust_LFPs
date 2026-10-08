@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "selection": "15101daf4d32c748b0f9c18d4dfef26248c15ab6ae783af252b7ca38851d02f5",
+  "files": {
+    "analysis_notes.txt": {
+      "sha256": "3872715e78727b16309e9cbc6fab9f21595dee79c6fe2206a65c25ce4f43cf09",
+      "kind": "table"
+    },
+    "CSVs/baseline_references.csv": {
+      "sha256": "48f9a5b5c2aa2b72ff3efa32d6f8a2481355d4fc02d025151080a224d582f195",
+      "kind": "table"
+    },
+    "CSVs/current_intensity_summary.csv": {
+      "sha256": "998d4667b161db7f00a34903211c6ce085660364e9376451e226d24694aa564e",
+      "kind": "table"
+    },
+    "CSVs/epoch_summaries.csv": {
+      "sha256": "3485ac99eb2beec2d85aa942460ebd34fb12173e18b02ef105ed93df4b7f9983",
+      "kind": "table"
+    },
+    "CSVs/experimental_group_time_points.csv": {
+      "sha256": "7f095cc9674e66d323278a32d4a534b26f283894cbbfc9619163fc44a90d252b",
+      "kind": "timeline_table"
+    },
+    "CSVs/experimental_settings.csv": {
+      "sha256": "af0cb38d54319393cd0cc3e3faace6ec79b86fc6e5b1f04928a66496f47322ff",
+      "kind": "timeline_table"
+    },
+    "CSVs/experimental_time_windows.csv": {
+      "sha256": "b466fec965b33251b0f013604919f5de2c178d9300e7069599c258dcccee8975",
+      "kind": "timeline_table"
+    },
+    "CSVs/experimental_treatments.csv": {
+      "sha256": "c6816790a3808a883a6596b355cbf89fae22ea667004a1f19a44fd76d3030f12",
+      "kind": "timeline_table"
+    },
+    "CSVs/overlay_summary.csv": {
+      "sha256": "d86640e21813516863dc25ba365fa4006a74f3d92b2e6b4618cfc11ffec9ac05",
+      "kind": "table"
+    },
+    "CSVs/plot_catalog.csv": {
+      "sha256": "514b31e5b74cc2f31801d49df76c60fb1b91f32577a54486197961acfa95aaf1",
+      "kind": "table"
+    },
+    "CSVs/time_windows.csv": {
+      "sha256": "a0e6e7160e41ccaf5ba3c014f1b64e33111e9c109a695ea2f263f1cec101bac1",
+      "kind": "table"
+    },
+    "Plots/time_course_absolute_hz_8157f37254b0dbd61e92.png": {
+      "sha256": "1164e1f11c7a38ff18fac1439264ee52c77234f1cc84c23fec9f36f7c599b570",
+      "kind": "time_course_absolute_hz"
+    },
+    "Plots/time_course_absolute_hz_8157f37254b0dbd61e92.svg": {
+      "sha256": "d092a258e9a837102bfa77227be41da47805e784095ec0034b2fa46763ec05c9",
+      "kind": "time_course_absolute_hz"
+    },
+    "Plots/time_course_percent_baseline_1f713f4fa6fa6f8cd64b.png": {
+      "sha256": "1af05f2332510b176806f4dc8e4f2dda8a415c5f1801ce86bf42d065c2a0d74c",
+      "kind": "time_course_percent_baseline"
+    },
+    "Plots/time_course_percent_baseline_1f713f4fa6fa6f8cd64b.svg": {
+      "sha256": "4e62ac93b5d355936fbdca0e4223d2489ef844f957c2e51009c211449ff4d6b7",
+      "kind": "time_course_percent_baseline"
+    }
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "pipeline": "Spike Count Multiple CSVs ordered.py::process_csvs",
+  "script_path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Spike Processing\\Spike Count Multiple CSVs ordered.py",
+  "script_sha256": "27af39add64d2c7fa54670ca42879836ca7d1a34a90c4a631d34817f6a327a4b",
+  "script_settings": {
+    "HP_SPIKE_BAND": [
+      300.0,
+      5000.0
+    ],
+    "SPIKE_Z_THR": 6.0,
+    "POLARITY": "both",
+    "REFRACTORY_MS": 1.0,
+    "AMP_MIN_UV": 40.0,
+    "AMP_MAX_UV": 700.0,
+    "W_MIN_MS": null,
+    "W_MAX_MS": null,
+    "SPIKE_CLASSIFICATION_WINDOW_MS": 0.5,
+    "SPIKE_AMPLITUDE_BIN_S": 60.0,
+    "SPIKE_AMPLITUDE_BASELINE_MINUTES": 10,
+    "SPIKE_AMPLITUDE_BASELINE_MIN_VALID_BINS": 8,
+    "SPIKE_AMPLITUDE_BASELINE_MIN_SPIKES": 20,
+    "SPIKE_AMPLITUDE_BASELINE_MAX_ABS_SLOPE_PERCENT_PER_MIN": 2.0,
+    "SPIKE_AMPLITUDE_BASELINE_MAX_CV_PERCENT": 20.0,
+    "DEFAULT_UNRECORDED_TREATMENT_LABEL": "H2O2 treatment - not recorded",
+    "TIME_COL": "time_s",
+    "MARKER_COLUMN_TOKENS": [
+      "marker",
+      "ttl",
+      "trigger",
+      "event",
+      "digital",
+      "dig",
+      "din",
+      "dout",
+      "stim",
+      "sync"
+    ]
+  },
+  "ordered_recordings": [
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\rec_Baseline_001.csv",
+      "mtime_ns": 1791392814566330900,
+      "size_bytes": 280593
+    }
+  ],
+  "ordered_recording_list": [
+    "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\rec_Baseline_001.csv"
+  ],
+  "labels_by_path": {
+    "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\rec_Baseline_001.csv": "Baseline"
+  },
+  "recording_metadata": [],
+  "window_sec": 60.0,
+  "polarity": "neg",
+  "shape_settings": {
+    "mode": "off",
+    "separation_ms": 1.0,
+    "depth_fraction": 0.2,
+    "prominence_fraction": 0.2,
+    "noise_multiplier": 3.0,
+    "padding_ms": 0.5
+  },
+  "spike_shape_audit_dirs": [],
+  "spike_count_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\off\\ALL_RECORDINGS__spike_counts_per_min.csv",
+  "spike_events_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\off\\spike_events.csv",
+  "spike_diagnostics_dir": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\off\\spike_diagnostics",
+  "spike_waveform_summary_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\off\\spike_waveform_summary.csv",
+  "spike_diagnostic_outputs_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\off\\spike_diagnostic_outputs.csv",
+  "spike_amplitude_timecourse_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\off\\spike_amplitude_time_course.csv",
+  "spike_amplitude_waveforms_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\off\\spike_amplitude_waveforms.csv",
+  "spike_amplitude_plot_paths": [],
+  "spike_amplitude_qc_warnings": [
+    "No complete 60-second bins were available for spike-amplitude time-course plotting."
+  ]
+}

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import re
 
-file_path = r"C:\Users\simmons\Desktop\current densities.xlsx"
+file_path = r"C:\Users\simmons\Desktop\Ground Truths\Current Densities for Plot.xlsx"
 
 tip_col = "Tip size"
 value_col = "uM in 100uL of PBS"
@@ -36,7 +36,7 @@ summary = (
 
 summary["std_value"] = summary["std_value"].fillna(0)
 
-x = np.arange(len(summary))
+x = np.arange(len(summary))*0.5
 labels = summary[tip_col].astype(str)
 
 fig, ax = plt.subplots(figsize=(8, 5))
@@ -48,8 +48,8 @@ ax.bar(
     capsize=6,
     color="grey",
     edgecolor="black",
-    width=0.6,
-    linewidth=0.6,
+    width=0.3,
+    linewidth=0.2,
     label="Mean ± SD"
 )
 
@@ -74,7 +74,7 @@ for i, tip in enumerate(summary[tip_col]):
 
 ax.set_xlabel("Electrode PEDOT Tip size")
 ax.set_ylabel("H2O2 Concentration (µM)")
-ax.set_title(" H2O2 after 30 mins of -0.9V")
+ax.set_title("H2O2 after 30 mins of -0.9V")
 ax.set_xticks(x)
 ax.set_xticklabels(labels)
 

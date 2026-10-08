@@ -1,0 +1,14 @@
+Rates are duration weighted. Baseline defaults to final 1200 seconds of labelled Baseline; any explicit range is recorded in baseline_references.csv. The denominator is shared by all Post epochs.
+Partial bins are weighted by overlap, assuming constant rate within a bin; gaps are not zero activity.
+Baseline summary is 100%; the complete baseline trace retains its variation.
+Group error bars: Mean ± SEM. SEM = sample SD (ddof=1) / sqrt(n independent preparations).
+SEM is not a confidence interval or standard deviation. SEM is missing for n < 2.
+Individual observations remain visible. Channels and time windows never increase independent n.
+Raw summaries match aligned window boundaries exactly. The lower strip reports contributing n at each window.
+Only manifest-listed files are current managed outputs; unrelated pre-existing files are untouched.
+Experimental time courses use observed midpoints and each specimen's own epoch durations. No fabricated observations or interpolation.
+Group time-course keys require the same epoch and experimental/display window boundaries; channels are separate.
+Current-response figures show quartile boxes with median and 1.5-IQR whiskers overlaid with the individual preparation means, with descending signed current from left to right.
+Current-response publication figures use filled markers, sequential blue shades and editable legend notes/order; effective settings are in CSVs/current_response_presentation.csv when generated.
+Publication PNGs use 300 dpi at the selected physical width; SVG text stays editable. Explicit horizontal offsets affect display only and are recorded alongside true currents.
+Katsuki-inspired presentation follows the requested specification; Fig. 1B itself was not verified.

@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "selection": "cb0c21ae0420542e4fa8b975a476c137c496e04ae4839186bfa92ff3456b9eec",
+  "files": {
+    "analysis_notes.txt": {
+      "sha256": "fb6413620c5d177e50194ba55734a5960d87cf5fd38300ca0e5313fe2a3f6dc8",
+      "kind": "table"
+    },
+    "CSVs/baseline_references.csv": {
+      "sha256": "2a67854b1a00b074c84a0a420c7b864559c5e7851dcd86418fd79b9cc4248dc5",
+      "kind": "table"
+    },
+    "CSVs/current_intensity_summary.csv": {
+      "sha256": "b5eb31f0495b421444a481f31fae30ebd228fb6ce6d16244a7df47ff4e457a81",
+      "kind": "table"
+    },
+    "CSVs/current_response_presentation.csv": {
+      "sha256": "f044d2ef798a873784c471310c90966c575b242a75e9de8184e12a6b240fe340",
+      "kind": "current"
+    },
+    "CSVs/epoch_summaries.csv": {
+      "sha256": "1c570b2acc87573772e14d322dbebefd3e4ee0d596ceb06a8a7066ec8a5601d9",
+      "kind": "table"
+    },
+    "CSVs/overlay_summary.csv": {
+      "sha256": "ee99de1a3290ddd86b1109250c6fd3394979d4e90ec9ddec8428112e9418abe8",
+      "kind": "table"
+    },
+    "CSVs/plot_catalog.csv": {
+      "sha256": "74c3e05050bec8a19be32b7569a2a8f6a08f39d27b2ae5f30cbe5837057f8f99",
+      "kind": "table"
+    },
+    "CSVs/time_windows.csv": {
+      "sha256": "c63ba9ceb413afdf2f13968bfbaf8217132519f4b39f58a79ae557ecbad49504",
+      "kind": "table"
+    },
+    "Plots/current_90f2d95a1c5ae5418a88.pdf": {
+      "sha256": "a64fc4e4392ce9d03c91680b23ca4815cff0d04fd15598e9a05586ef1f33a59a",
+      "kind": "current"
+    },
+    "Plots/current_90f2d95a1c5ae5418a88.png": {
+      "sha256": "eff42f4b26028eba2d2753b7d7fb8a2f7459fdf06feba93ebc5ed5b0539733c5",
+      "kind": "current"
+    },
+    "Plots/current_90f2d95a1c5ae5418a88.svg": {
+      "sha256": "4436b05ac7728d5ef62d7ad346e20a19732d73753c274d1d94569fba0c479797",
+      "kind": "current"
+    },
+    "Plots/epoch_means_9d28c98d58d83f754c48.png": {
+      "sha256": "5e9380ac72710e07200394d3cb88c9ca2d70c5631f9649948f78afbcca27f9f3",
+      "kind": "epoch_means"
+    },
+    "Plots/epoch_means_9d28c98d58d83f754c48.svg": {
+      "sha256": "79ee84755022306c4e724930e0680ad0bbd470fe13ea52db248de2bcb4416b06",
+      "kind": "epoch_means"
+    },
+    "Plots/normalized_a5c1d9070efc2240a267.png": {
+      "sha256": "e5d1788ad4a677ff1826a4c051dd1dffb3d83bfceed754cb23e022390d266c43",
+      "kind": "normalized"
+    },
+    "Plots/normalized_a5c1d9070efc2240a267.svg": {
+      "sha256": "4f8f9d2bba7c2ed03c9edb3e6dd64dc46c99f846d75040a9bd06fc8842788ef5",
+      "kind": "normalized"
+    }
+  }
+}

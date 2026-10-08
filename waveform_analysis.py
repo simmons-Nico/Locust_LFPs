@@ -33,6 +33,10 @@ Outputs are written under CSV_DIR/waveform_analysis/<channel>/.
 import os
 import re
 import glob
+import argparse
+import importlib.util
+from pathlib import Path
+import spike_shape_qc as shape_qc
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -435,7 +439,17 @@ def raincloud_amplitude_figure(box_by, labels, colors, channel, ylabel,
 
 
 # ======================================================================
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    shape_qc.add_arguments(parser)
+    cfg = shape_qc.from_arguments(parser.parse_args(argv))
+    shared = None
+    if cfg["mode"] != "off":
+        spec = importlib.util.spec_from_file_location("shared_spike_waveforms", Path(__file__).resolve().parent / "Spike Processing" / "Spike Count Multiple CSVs ordered.py")
+        shared = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(shared)
+        for key in ("HP_SPIKE_BAND", "SPIKE_Z_THR", "REFRACTORY_MS", "AMP_MIN_UV", "AMP_MAX_UV"):
+            setattr(shared, key, globals()[key])
     os.makedirs(CSV_DIR, exist_ok=True)
     out_root = os.path.join(CSV_DIR, OUT_DIR_NAME)
     os.makedirs(out_root, exist_ok=True)
@@ -471,10 +485,19 @@ def main():
                 print(f"[skip] {base}/{ch}: no finite samples")
                 continue
 
-            xhp = band_filter(x, fs, HP_SPIKE_BAND, order=4)
-            spike_idx = detect_spikes(xhp, fs, zthr=SPIKE_Z_THR,
-                                      refr_ms=REFRACTORY_MS)
-            valid_idx, W = extract_waveforms(xhp, spike_idx, fs, PRE_MS, POST_MS)
+            if shared is None:
+                xhp = band_filter(x, fs, HP_SPIKE_BAND, order=4)
+                spike_idx = detect_spikes(xhp, fs, zthr=SPIKE_Z_THR, refr_ms=REFRACTORY_MS)
+                valid_idx, W = extract_waveforms(xhp, spike_idx, fs, PRE_MS, POST_MS)
+            else:
+                details = shared.detect_spikes_with_details(x, t, polarity=POLARITY,
+                    return_filtered_trace=True, shape_settings=cfg)
+                xhp = details["filtered_trace_uv"]
+                spike_idx = details["peaks"]
+                valid_idx, W = extract_waveforms(xhp, spike_idx, fs, PRE_MS, POST_MS)
+                shape_qc.write_audit(Path(out_root) / "spike_shape_qc" / cfg["mode"] / shared._safe_name(base) / shared._safe_name(ch),
+                    base, ch, xhp, t, fs, details["shape_reports"], details["shape_before_peaks"], spike_idx,
+                    shared.folded_window_bounds(float(t[0]), float(t[-1]), shared.WINDOW_SEC, 1/fs), cfg)
             if W.shape[0] == 0:
                 print(f"[{base}/{ch}] stage '{stage}': 0 spikes")
                 continue
@@ -490,6 +513,11 @@ def main():
             keep = amp_uv >= AMP_MIN_UV
             if AMP_MAX_UV is not None:
                 keep &= amp_uv <= AMP_MAX_UV
+            if shared is not None:
+                # Already gated by the authoritative counter; do not gate again
+                # using a different waveform-window amplitude definition.
+                amp_uv = np.asarray([abs(xhp[i]) for i in valid_idx])
+                keep = np.ones(len(valid_idx), dtype=bool)
             W = W[keep]
             amp_uv = amp_uv[keep]
             valid_idx = valid_idx[keep]

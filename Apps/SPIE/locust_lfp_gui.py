@@ -60,6 +60,7 @@ APP_NAME = "Signal Processing for Insect Electrophysiology (SPIE)"
 APP_SHORT_NAME = "SPIE"
 SCRIPT_DIR = RUNTIME_ROOT
 APP_ICON = APP_ASSET_DIR / "spie_icon.ico"
+OVERLAY_SCRIPT = RUNTIME_ROOT / "Spike Processing" / "overlay_spike_counts_separate_epochs.py"
 PLOT_SCRIPT = RUNTIME_ROOT / "Plotting and Utilities" / "plot_baseline_post_firing_rates.py"
 CSV_SPIKE_PLOT_SCRIPT = RUNTIME_ROOT / "Spike Processing" / "CSV_to_spike_counts.py"
 SPIKE_SCRIPT = RUNTIME_ROOT / "Spike Processing" / "Spike Count Multiple CSVs ordered.py"
@@ -157,6 +158,7 @@ class SpikePipelineRequest:
     polarity: str
     spike_events_path: str | None
     recording_metadata: list[dict]
+    shape_settings: dict | None = None
 
 
 def _file_fingerprint(path: str | Path) -> dict:
@@ -221,6 +223,7 @@ def run_shared_spike_pipeline(request: SpikePipelineRequest, script_path: Path =
         spike_events_path=request.spike_events_path,
         recording_metadata_by_path=request.recording_metadata,
         return_outputs=True,
+        shape_settings=request.shape_settings,
     )
     if isinstance(spike_outputs, dict):
         spike_count_csv = spike_outputs.get("spike_count_csv", "")
@@ -239,6 +242,8 @@ def run_shared_spike_pipeline(request: SpikePipelineRequest, script_path: Path =
         "recording_metadata": list(request.recording_metadata),
         "window_sec": float(request.window_sec),
         "polarity": polarity,
+        "shape_settings": module.shape_qc.settings(request.shape_settings),
+        "spike_shape_audit_dirs": spike_outputs.get("spike_shape_audit_dirs", []),
         "spike_count_csv": str(spike_count_csv),
         "spike_events_csv": str(spike_events_csv),
         "spike_diagnostics_dir": str(Path(out_dir) / "spike_diagnostics"),
@@ -264,6 +269,7 @@ def run_shared_spike_pipeline(request: SpikePipelineRequest, script_path: Path =
         "spike_amplitude_qc_warnings": list(spike_outputs.get("spike_amplitude_qc_warnings", [])),
         "spike_processing_provenance_json": provenance_json or "",
         "spike_processing_provenance": provenance,
+        "spike_shape_audit_dirs": spike_outputs.get("spike_shape_audit_dirs", []),
     }
 
 
@@ -630,7 +636,8 @@ class LocustPipelineApp:
         if not APP_ICON.exists():
             return None
         try:
-            image = Image.open(APP_ICON).convert("RGBA")
+            with Image.open(APP_ICON) as source:
+                image = source.convert("RGBA")
             image.thumbnail((size, size), Image.Resampling.LANCZOS)
             return ImageTk.PhotoImage(image)
         except Exception:
@@ -867,6 +874,14 @@ class LocustPipelineApp:
         self.spike_glob_var = tk.StringVar(value="*.csv")
         self.spike_window_var = tk.StringVar(value="1 min")
         self.spike_polarity_var = tk.StringVar(value="both")
+        self.spike_shape_vars = {
+            "mode": tk.StringVar(value="off"),
+            "separation_ms": tk.StringVar(value="1.0"),
+            "depth_fraction": tk.StringVar(value="0.2"),
+            "prominence_fraction": tk.StringVar(value="0.2"),
+            "noise_multiplier": tk.StringVar(value="3.0"),
+            "padding_ms": tk.StringVar(value="0.5"),
+        }
         self.spike_events_csv_var = tk.StringVar(value="")
         self.spike_out_dir_var = tk.StringVar(
             value=str(DEFAULT_DATA_DIR / "spike_counts_per_min")
@@ -922,6 +937,20 @@ class LocustPipelineApp:
 
         row += 1
         self._path_row(settings, row, "Spike output folder", self.spike_out_dir_var, self._browse_spike_out_dir)
+        row += 1
+        shape_box = self._collapsible_section(settings, row, "Optional waveform-shape noise rejection")
+        ttk.Label(shape_box, text="Bombcell-inspired per-event adaptation; inspect rejected waveforms before use.", style="Hint.TLabel").grid(row=0, column=0, columnspan=2, sticky="w")
+        for shape_row, (key, label) in enumerate((
+            ("mode", "Mode"), ("separation_ms", "Maximum trough separation (ms)"),
+            ("depth_fraction", "Minimum depth / event amplitude"),
+            ("prominence_fraction", "Minimum prominence / event amplitude"),
+            ("noise_multiplier", "Minimum depth and prominence / noise sigma"),
+            ("padding_ms", "Extra inspection padding (ms)")), 1):
+            ttk.Label(shape_box, text=label).grid(row=shape_row, column=0, sticky="w", pady=3)
+            if key == "mode":
+                ttk.Combobox(shape_box, textvariable=self.spike_shape_vars[key], values=("off", "flag_only", "reject"), state="readonly", width=15).grid(row=shape_row, column=1, sticky="w")
+            else:
+                ttk.Entry(shape_box, textvariable=self.spike_shape_vars[key], width=12).grid(row=shape_row, column=1, sticky="w")
         row += 1
 
         controls = ttk.Frame(order_box)
@@ -1298,6 +1327,41 @@ class LocustPipelineApp:
         row += 1
         self._path_row(frame, row, "Plot output folder", self.plot_out_dir_var, self._browse_plot_out_dir)
 
+        row += 1
+        self.preparation_currents = {}
+        self.preparation_plot_titles = {}
+        self.preparation_display_names = {}
+        self.preparation_symbols = {}
+        self.h2o2_config = {"concentration": ""}
+        self.current_publication = {"size": "double", "legend_order": [], "legend_note": "", "note_overrides": {}, "horizontal_offset_na": 0.}
+        self.reference_start_var = tk.StringVar(value="")
+        self.reference_end_var = tk.StringVar(value="")
+        self.preparation_default_current = tk.StringVar(value="-200")
+        prep_box = ttk.LabelFrame(frame, text="Preparations for normalization and epoch overlay", padding=10)
+        prep_box.grid(row=row, column=0, columnspan=3, sticky="ew", pady=6)
+        ttk.Button(prep_box, text="Select preparation CSVs...", command=self._browse_preparation_inputs).pack(anchor="w")
+        ttk.Label(prep_box, text="One CSV per preparation: select current (nA) or H₂O₂ positive control. H₂O₂ epochs: baseline, during, post.", style="Hint.TLabel").pack(anchor="w")
+        ttk.Button(prep_box, text="H₂O₂ concentration...", command=self.configure_h2o2_recordings).pack(anchor="w", pady=4)
+        ttk.Button(prep_box, text="Set recording names...", command=self.configure_recording_names).pack(anchor="w", pady=4)
+        ttk.Button(prep_box, text="Set recording symbols...", command=self.configure_recording_symbols).pack(anchor="w", pady=4)
+        reference_row = ttk.Frame(prep_box)
+        reference_row.pack(fill="x", pady=4)
+        ttk.Label(reference_row, text="Reference baseline range (min from Baseline start):").pack(side="left")
+        ttk.Entry(reference_row, textvariable=self.reference_start_var, width=8).pack(side="left", padx=4)
+        ttk.Label(reference_row, text="to").pack(side="left")
+        ttk.Entry(reference_row, textvariable=self.reference_end_var, width=8).pack(side="left", padx=4)
+        ttk.Label(prep_box, text="Blank = final 20 minutes. An explicit range applies to all normalized outputs in this analysis.", style="Hint.TLabel").pack(anchor="w")
+        default_row = ttk.Frame(prep_box)
+        default_row.pack(fill="x", pady=4)
+        from h2o2_recordings import CONDITIONS
+        ttk.Label(default_row, text="Condition for single file / full pipeline:").pack(side="left")
+        ttk.Combobox(default_row, textvariable=self.preparation_default_current, values=CONDITIONS, width=26).pack(side="left", padx=8)
+        ttk.Button(default_row, text="Clear multiple-file selection", command=lambda: self._set_preparation_inputs([])).pack(side="left")
+        self.preparation_rows = ttk.Frame(prep_box)
+        self.preparation_rows.pack(fill="x")
+        self.preparation_selection_label = ttk.Label(prep_box, text="Using the single spike-count file above.", style="Hint.TLabel")
+        self.preparation_selection_label.pack(anchor="w")
+        row += 1
         selector = ttk.LabelFrame(frame, text="Plot and analysis tools", padding=12)
         selector.grid(row=row, column=0, columnspan=3, sticky="ew", pady=(12, 8))
         selector.columnconfigure(0, weight=1)
@@ -1312,8 +1376,8 @@ class LocustPipelineApp:
         self._plot_tool_card(
             selector,
             key="baseline_post",
-            title="Percentage Change from Baseline",
-            description="Percent change, spike frequency, time courses, and summary tables.",
+            title="Firing rate (% of baseline)",
+            description="Normalize each preparation/channel; plot epoch means and current-intensity responses.",
             color=STEP_COLORS["plot"],
             row=1,
             column=0,
@@ -1337,6 +1401,11 @@ class LocustPipelineApp:
             column=0,
         )
 
+        self._plot_tool_card(
+            selector, key="epoch_overlay", title="Epoch spike-count overlay",
+            description="Independent preparations, raw counts, mean and SEM error bars by current intensity.",
+            color=STEP_COLORS["lfp"], row=2, column=1,
+        )
         row += 1
         self.plot_detail_frame = ttk.Frame(frame)
         self.plot_detail_frame.grid(row=row, column=0, columnspan=3, sticky="nsew")
@@ -1345,6 +1414,7 @@ class LocustPipelineApp:
 
         self.plot_detail_panels = {
             "baseline_post": self._build_baseline_post_plot_panel(self.plot_detail_frame),
+            "epoch_overlay": self._build_preparation_plot_panel(self.plot_detail_frame, "overlay"),
             "continuous_spike": self._build_continuous_spike_plot_panel(self.plot_detail_frame),
             "amplitude_change": self._build_amplitude_change_plot_panel(self.plot_detail_frame),
         }
@@ -1411,7 +1481,8 @@ class LocustPipelineApp:
             )
 
         names = {
-            "baseline_post": "Percentage Change from Baseline selected",
+            "baseline_post": "Firing rate (% of baseline) selected",
+            "epoch_overlay": "Epoch spike-count overlay selected",
             "continuous_spike": "Continuous spike-count plots selected",
             "amplitude_change": "Spike amplitude change selected",
         }
@@ -1453,109 +1524,349 @@ class LocustPipelineApp:
         return "break"
 
     def _build_baseline_post_plot_panel(self, parent):
-        panel = ttk.LabelFrame(parent, text="Percentage Change from Baseline parameters", padding=12)
-        panel.columnconfigure(0, weight=1)
+        return self._build_preparation_plot_panel(parent, "normalized")
 
-        row = 0
-        phase_box = ttk.LabelFrame(panel, text="Recorded phases", padding=10, style="Subsection.TLabelframe")
-        phase_box.grid(row=row, column=0, sticky="ew", pady=(0, 6))
-        ttk.Checkbutton(phase_box, text="Baseline", variable=self.phase_baseline_var).pack(side="left", padx=(0, 16))
-        ttk.Checkbutton(phase_box, text="Stimulation", variable=self.phase_stim_var).pack(side="left", padx=(0, 16))
-        ttk.Checkbutton(phase_box, text="Post", variable=self.phase_post_var).pack(side="left", padx=(0, 16))
-
-        row += 1
-        comp_box = ttk.LabelFrame(panel, text="Comparisons to output", padding=10, style="Subsection.TLabelframe")
-        comp_box.grid(row=row, column=0, sticky="ew", pady=6)
-        ttk.Checkbutton(comp_box, text="Baseline halves", variable=self.comp_baseline_var).pack(side="left", padx=(0, 16))
-        ttk.Checkbutton(comp_box, text="Baseline vs stimulation", variable=self.comp_stim_var).pack(side="left", padx=(0, 16))
-        ttk.Checkbutton(comp_box, text="Baseline vs Post", variable=self.comp_post_var).pack(side="left", padx=(0, 16))
-
-        row += 1
-        ttk.Checkbutton(
-            panel,
-            text="Pool stimulation/Post percent-change into one plot",
-            variable=self.pool_percent_change_var,
-        ).grid(
-            row=row,
-            column=0,
-            sticky="w",
-            pady=6,
+    def _build_preparation_plot_panel(self, parent, mode):
+        panel = ttk.LabelFrame(parent, text={"overlay": "Epoch overlay", "normalized": "Firing rate (% of baseline)"}[mode], padding=12)
+        description = (
+            "Raw spike counts aligned within matching epochs. Individual traces, mean ? SEM and contributing preparation counts; "
+            "separate plots for each channel and current intensity. Missing epochs remain absent."
+            if mode == "overlay" else
+            "Each channel uses the final 20 minutes of its own Baseline (100%) for all Post epochs. "
+            "Outputs: normalized time courses, epoch means, and individual points versus current intensity. "
+            "Short baselines use available data; zero baselines are excluded with a notice."
         )
-
-        row += 1
-        split_box = ttk.LabelFrame(panel, text="Phase split comparisons", padding=10, style="Subsection.TLabelframe")
-        split_box.grid(row=row, column=0, sticky="ew", pady=6)
-        split_box.columnconfigure(1, weight=1)
-        split_box.columnconfigure(3, weight=1)
-        ttk.Label(split_box, text="Treatment/perfusion").grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Combobox(
-            split_box,
-            textvariable=self.middle_phase_split_var,
-            values=("Whole", "Halves", "Thirds"),
-            width=10,
-            state="readonly",
-        ).grid(row=0, column=1, sticky="w", padx=(8, 18), pady=4)
-        ttk.Label(split_box, text="Post").grid(row=0, column=2, sticky="w", padx=(14, 4), pady=4)
-        ttk.Combobox(
-            split_box,
-            textvariable=self.post_phase_split_var,
-            values=("Whole", "Halves", "Thirds"),
-            width=10,
-            state="readonly",
-        ).grid(row=0, column=3, sticky="w", padx=(8, 0), pady=4)
-
-        row += 1
-        ttk.Checkbutton(
-            panel,
-            text="Show channel name on Baseline/change plots",
-            variable=self.percent_show_channel_labels_var,
-        ).grid(
-            row=row,
-            column=0,
-            sticky="w",
-            pady=6,
-        )
-
-        row += 1
-        title_box = ttk.LabelFrame(panel, text="Percent-change plot titles", padding=10, style="Subsection.TLabelframe")
-        title_box.grid(row=row, column=0, sticky="ew", pady=6)
-        title_box.columnconfigure(1, weight=1)
-        ttk.Label(title_box, text="Pooled plot title").grid(row=0, column=0, sticky="w", pady=4)
-        ttk.Entry(title_box, textvariable=self.pooled_percent_title_var).grid(
-            row=0,
-            column=1,
-            sticky="ew",
-            padx=(8, 0),
-            pady=4,
-        )
-        ttk.Button(
-            title_box,
-            text="Set non-pooled titles...",
-            style="Secondary.TButton",
-            command=self.configure_percent_part_titles,
-        ).grid(row=1, column=0, sticky="w", pady=(6, 0))
-        ttk.Label(
-            title_box,
-            textvariable=self.percent_part_titles_summary_var,
-            style="Hint.TLabel",
-        ).grid(row=1, column=1, sticky="w", padx=(8, 0), pady=(6, 0))
-
-        row += 1
-        ttk.Checkbutton(panel, text="Make per-channel time-course plots", variable=self.plot_time_course_var).grid(
-            row=row,
-            column=0,
-            sticky="w",
-            pady=6,
-        )
-
-        row += 1
-        ttk.Button(panel, text="Run Plotting", style="Plot.TButton", command=self.run_plotting).grid(
-            row=row,
-            column=0,
-            sticky="w",
-            pady=(6, 0),
-        )
+        ttk.Label(panel, text=description, wraplength=850, justify="left").pack(anchor="w", pady=(0, 10))
+        if mode == "normalized":
+            ttk.Button(panel, text="Set legend order...", command=self.configure_current_legend_order).pack(anchor="w", pady=(0, 8))
+            ttk.Button(panel, text="Current-response appearance / legend notes...", command=self.configure_current_publication).pack(anchor="w", pady=(0, 8))
+        ttk.Button(panel, text="Set plot titles...", command=lambda: self.configure_preparation_titles(mode)).pack(anchor="w", pady=(0, 8))
+        ttk.Label(panel, text="Exports: CSVs/ for tables; Plots/ for PNG and SVG figures.", style="Hint.TLabel").pack(anchor="w", pady=(0, 8))
+        ttk.Button(panel, text={"overlay": "Run epoch overlay", "normalized": "Run normalized analysis"}[mode],
+                   style="Plot.TButton", command=lambda: self.run_preparation_plotting(mode)).pack(anchor="w")
         return panel
+
+    def _set_preparation_inputs(self, paths):
+        from h2o2_recordings import CONDITIONS
+        previous = self.preparation_currents
+        self.preparation_currents = {
+            str(Path(path).resolve()): previous.get(str(Path(path).resolve())) or tk.StringVar(value=self.preparation_default_current.get())
+            for path in paths
+        }
+        for widget in self.preparation_rows.winfo_children():
+            widget.destroy()
+        for index, (path, current) in enumerate(self.preparation_currents.items()):
+            ttk.Label(self.preparation_rows, text=Path(path).name).grid(row=index, column=0, sticky="w", pady=2)
+            ttk.Combobox(self.preparation_rows, textvariable=current, values=CONDITIONS, width=26).grid(row=index, column=1, padx=10)
+            ttk.Label(self.preparation_rows, text="condition / nA").grid(row=index, column=2)
+        self.preparation_selection_label.configure(text=(f"{len(paths)} preparation CSV(s) selected; this list takes precedence over the single file above." if paths else "Using the single spike-count file above."))
+        self._bind_plot_tab_mousewheel_widgets(self.preparation_rows)
+        self._refresh_plot_tab_scrollregion()
+
+    def _browse_preparation_inputs(self):
+        paths = filedialog.askopenfilenames(title="Select independent preparation spike-count CSVs", initialdir=str(BROWSE_START_DIR), filetypes=[("Spike-count CSV", "*.csv")])
+        if paths:
+            self._set_preparation_inputs(paths)
+
+    def _preparation_inputs(self, input_path=None):
+        import math
+        if input_path is not None:
+            paths = [input_path]
+            current_vars = [self.preparation_currents.get(str(Path(input_path).resolve()), self.preparation_default_current)]
+        elif self.preparation_currents:
+            paths = list(self.preparation_currents)
+            current_vars = list(self.preparation_currents.values())
+        else:
+            paths = [self.plot_input_var.get().strip()]
+            current_vars = [self.preparation_default_current]
+        if not all(paths) or not all(Path(path).is_file() for path in paths):
+            raise ValueError("Select existing preparation CSV files first.")
+        from h2o2_recordings import parse_condition
+        currents = [parse_condition(var.get()) for var in current_vars]
+        return paths, currents
+
+    def configure_h2o2_recordings(self):
+        dialog = tk.Toplevel(self.root)
+        dialog.title("H\u2082O\u2082 positive control")
+        dialog.geometry("650x225")
+        dialog.transient(self.root)
+        ttk.Label(dialog, text="Select H\u2082O\u2082 positive control for one CSV per preparation.\nThe baseline, during and post epoch labels are read automatically (case-insensitive).\nBoth measurements use that file's baseline and are paired automatically.",
+                  wraplength=615).pack(anchor="w", padx=12, pady=12)
+        concentration = tk.StringVar(value=self.h2o2_config.get("concentration", ""))
+        row = ttk.Frame(dialog)
+        row.pack(fill="x", padx=12)
+        ttk.Label(row, text="Concentration (with units; optional)").pack(side="left")
+        ttk.Entry(row, textvariable=concentration, width=25).pack(side="left", padx=8)
+        def save():
+            self.h2o2_config = {"concentration": concentration.get().strip()}
+            dialog.destroy()
+        buttons = ttk.Frame(dialog)
+        buttons.pack(fill="x", padx=12, pady=12)
+        ttk.Button(buttons, text="Save", command=save).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=8)
+        dialog.grab_set()
+        return dialog
+
+    def _preparation_plot_command(self, mode, input_path=None):
+        if mode not in ("overlay", "normalized"):
+            raise ValueError("Choose epoch overlay or normalized firing-rate analysis.")
+        paths, currents = self._preparation_inputs(input_path)
+        output = self.plot_out_dir_var.get().strip() or str(Path(paths[0]).parent / f"{Path(paths[0]).stem}_{mode}_plots")
+        script = OVERLAY_SCRIPT if mode == "overlay" else PLOT_SCRIPT
+        cmd = [sys.executable, str(script), *paths, "--currents", *[str(c) for c in currents], "--out-dir", output, "--mode", mode]
+        if any(isinstance(c, str) for c in currents):
+            cmd.extend(["--h2o2-json", json.dumps(self.h2o2_config)])
+        reference = self._reference_baseline_range()
+        if reference is not None:
+            cmd.extend(["--baseline-range-min", *[str(x) for x in reference]])
+        if self.preparation_display_names:
+            cmd.extend(["--names-json", json.dumps(self.preparation_display_names)])
+        if self.preparation_symbols:
+            cmd.extend(["--symbols-json", json.dumps(self.preparation_symbols)])
+        if mode in ("normalized", "both", "all"):
+            cmd.extend(["--publication-json", json.dumps(self.current_publication)])
+        if self.preparation_plot_titles:
+            cmd.extend(["--titles-json", json.dumps(self.preparation_plot_titles)])
+        return cmd, output
+
+    def configure_preparation_titles(self, mode):
+        try:
+            paths, currents = self._preparation_inputs()
+            names = dict(self.preparation_display_names)
+            reference = self._reference_baseline_range()
+        except ValueError as exc:
+            messagebox.showerror("Plot titles", str(exc))
+            return
+
+        def task():
+            from preparation_spike_analysis import discover_plot_specs
+            return discover_plot_specs(paths, currents, mode, names, reference)
+
+        self.run_background("Detect plot titles", task, on_success=self._edit_preparation_titles)
+
+    def _edit_preparation_titles(self, specs, values=None, dialog_title="Set plot titles", save_caption="Save titles", choices=None):
+        values = self.preparation_plot_titles if values is None else values
+        if not specs:
+            messagebox.showinfo("Plot titles", "No valid plots are available for these inputs.")
+            return
+        dialog = tk.Toplevel(self.root)
+        dialog.title(dialog_title)
+        dialog.geometry("1000x600")
+        dialog.transient(self.root)
+        ttk.Label(dialog, text="Enter display text. Blank uses the indicated default. Source files and stable identifiers remain unchanged.").pack(anchor="w", padx=12, pady=10)
+        body = ttk.Frame(dialog)
+        body.pack(fill="both", expand=True, padx=12)
+        canvas = tk.Canvas(body, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(body, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        rows = ttk.Frame(canvas)
+        window = canvas.create_window((0, 0), window=rows, anchor="nw")
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        rows.bind("<Configure>", lambda _event: canvas.configure(scrollregion=canvas.bbox("all")))
+        entries = {}
+        for spec in specs:
+            ttk.Label(rows, text=spec["default_title"], wraplength=900, justify="left").pack(anchor="w", pady=(10, 3))
+            if choices:
+                entry = ttk.Combobox(rows, state="readonly", values=list(choices))
+                current = values.get(spec["plot_id"], "")
+                entry.set(next((label for label, code in choices.items() if code == current), "Automatic"))
+            else:
+                entry = ttk.Entry(rows)
+                entry.insert(0, values.get(spec["plot_id"], ""))
+            entry.pack(fill="x", padx=(0, 12))
+            entries[spec["plot_id"]] = entry
+        buttons = ttk.Frame(dialog)
+        buttons.pack(fill="x", padx=12, pady=12)
+
+        def save():
+            # Update only the displayed IDs; titles for other selections survive.
+            values.update({key: choices[entry.get()] if choices else entry.get() for key, entry in entries.items()})
+            dialog.destroy()
+
+        ttk.Button(buttons, text=save_caption, command=save).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=8)
+        dialog.grab_set()
+        return dialog
+
+    def _reference_baseline_range(self):
+        import math
+        values = [self.reference_start_var.get().strip(), self.reference_end_var.get().strip()]
+        if not any(values):
+            return None
+        try:
+            lo, hi = map(float, values)
+        except ValueError as exc:
+            raise ValueError("Enter both baseline reference start and end, or leave both blank for final 20 minutes.") from exc
+        if not math.isfinite(lo) or not math.isfinite(hi) or not 0 <= lo < hi:
+            raise ValueError("Baseline reference needs 0 <= start < end in minutes.")
+        return [lo, hi]
+
+    def configure_recording_names(self):
+        try:
+            paths, _ = self._preparation_inputs()
+        except ValueError as exc:
+            messagebox.showerror("Recording names", str(exc))
+            return
+        specs = [{"plot_id": str(Path(path).resolve()), "default_title": f"{Path(path).resolve()}\nDefault: {Path(path).stem}"} for path in paths]
+        return self._edit_preparation_titles(specs, self.preparation_display_names, "Set recording names", "Save names")
+
+    def configure_recording_symbols(self):
+        try:
+            from preparation_spike_analysis import RECORDING_SYMBOLS
+            paths, _ = self._preparation_inputs()
+        except ValueError as exc:
+            messagebox.showerror("Recording symbols", str(exc))
+            return
+        specs = [{"plot_id": str(Path(path).resolve()), "default_title": f"{self.preparation_display_names.get(str(Path(path).resolve()), '') or Path(path).stem}\n{Path(path).resolve()}"} for path in paths]
+        return self._edit_preparation_titles(specs, self.preparation_symbols, "Set recording symbols", "Save symbols", RECORDING_SYMBOLS)
+
+    def configure_current_legend_order(self):
+        try:
+            paths, _ = self._preparation_inputs()
+        except ValueError as exc:
+            messagebox.showerror("Legend order", str(exc))
+            return
+        paths = sorted(str(Path(p).resolve()) for p in paths)
+        saved = self.current_publication["legend_order"]
+        ordered = [p for p in saved if p in paths] + [p for p in paths if p not in saved]
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Set current-response legend order")
+        dialog.geometry("950x500")
+        dialog.transient(self.root)
+        ttk.Label(dialog, text="Reorder legend entries only. Data coordinates and recording identities remain unchanged.").pack(anchor="w", padx=12, pady=10)
+        listing = tk.Listbox(dialog, exportselection=False)
+        listing.pack(fill="both", expand=True, padx=12)
+        def refresh(selected=0):
+            listing.delete(0, "end")
+            for path in ordered:
+                label = self.preparation_display_names.get(path, "").strip() or Path(path).stem
+                listing.insert("end", f"{label}  |  {path}")
+            if ordered:
+                listing.selection_set(selected)
+                listing.see(selected)
+        def move(direction):
+            selected = listing.curselection()
+            if selected and 0 <= selected[0] + direction < len(ordered):
+                i, j = selected[0], selected[0] + direction
+                ordered[i], ordered[j] = ordered[j], ordered[i]
+                refresh(j)
+        def reset():
+            ordered[:] = paths
+            refresh()
+        def save():
+            complete = list(dict.fromkeys(saved + paths))
+            replacement = iter(ordered)
+            self.current_publication["legend_order"] = [next(replacement) if p in paths else p for p in complete]
+            dialog.destroy()
+        buttons = ttk.Frame(dialog)
+        buttons.pack(fill="x", padx=12, pady=12)
+        for label, command in (("Move up", lambda: move(-1)), ("Move down", lambda: move(1)), ("Restore default", reset), ("Save order", save), ("Cancel", dialog.destroy)):
+            ttk.Button(buttons, text=label, command=command).pack(side="left", padx=4)
+        refresh()
+        dialog.grab_set()
+        return dialog
+
+    def configure_current_publication(self):
+        try:
+            paths, currents = self._preparation_inputs()
+            names, reference = dict(self.preparation_display_names), self._reference_baseline_range()
+        except ValueError as exc:
+            messagebox.showerror("Current-response appearance", str(exc))
+            return
+        def task():
+            from preparation_spike_analysis import discover_plot_specs
+            return [s for s in discover_plot_specs(paths, currents, "normalized", names, reference) if s["kind"] == "current"]
+        self.run_background("Detect current-response plots", task, on_success=self._edit_current_publication)
+
+    def _edit_current_publication(self, specs):
+        from current_response_publication import publication_options
+        cfg = self.current_publication
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Current-response appearance and legend notes")
+        dialog.geometry("950x700")
+        dialog.transient(self.root)
+        body = ttk.Frame(dialog)
+        body.pack(fill="both", expand=True, padx=12, pady=10)
+        canvas = tk.Canvas(body, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(body, orient="vertical", command=canvas.yview)
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        canvas.configure(yscrollcommand=scrollbar.set)
+        rows = ttk.Frame(canvas)
+        window = canvas.create_window((0, 0), window=rows, anchor="nw")
+        canvas.bind("<Configure>", lambda event: canvas.itemconfigure(window, width=event.width))
+        rows.bind("<Configure>", lambda event: canvas.configure(scrollregion=canvas.bbox("all")))
+        ttk.Label(rows, text="Publication width (height expands for text): single = 3.5 in; double = 7.2 in. PNG 300 dpi; editable SVG.").pack(anchor="w")
+        size = ttk.Combobox(rows, state="readonly", values=("single", "double"))
+        size.set(cfg["size"])
+        size.pack(anchor="w", pady=(3, 10))
+        ttk.Label(rows, text="Optional horizontal symbol spacing (nA): 0 keeps exact measured coordinates. Nonzero offsets are labelled on the figure.", wraplength=850).pack(anchor="w")
+        offset = ttk.Entry(rows)
+        offset.insert(0, str(cfg["horizontal_offset_na"]))
+        offset.pack(anchor="w", pady=(3, 10))
+        ttk.Label(rows, text="Shared legend note (blank omits it). Enter confirmed material and geometry, with correct units; no specimen details are assumed.", wraplength=850).pack(anchor="w")
+        shared = tk.Text(rows, height=4, wrap="word", font=("Arial", 11))
+        shared.insert("1.0", cfg["legend_note"])
+        shared.pack(fill="x", pady=(3, 10))
+        overrides = {}
+        for spec in specs:
+            key = spec["plot_id"]
+            ttk.Label(rows, text=spec["default_title"], wraplength=850).pack(anchor="w", pady=(10, 3))
+            use_shared = tk.BooleanVar(value=key not in cfg["note_overrides"])
+            ttk.Checkbutton(rows, text="Use shared note (uncheck for a custom note, or blank to hide)", variable=use_shared).pack(anchor="w")
+            editor = tk.Text(rows, height=3, wrap="word", font=("Arial", 11))
+            editor.insert("1.0", cfg["note_overrides"].get(key, ""))
+            editor.pack(fill="x")
+            overrides[key] = (use_shared, editor)
+        def save():
+            notes = dict(cfg["note_overrides"])
+            for key, (use_shared, editor) in overrides.items():
+                if use_shared.get():
+                    notes.pop(key, None)
+                else:
+                    notes[key] = editor.get("1.0", "end-1c")
+            try:
+                self.current_publication = publication_options(dict(cfg, size=size.get(), legend_note=shared.get("1.0", "end-1c"), note_overrides=notes, horizontal_offset_na=offset.get()))
+            except ValueError as exc:
+                messagebox.showerror("Current-response appearance", str(exc), parent=dialog)
+                return
+            dialog.destroy()
+        buttons = ttk.Frame(dialog)
+        buttons.pack(fill="x", padx=12, pady=12)
+        ttk.Button(buttons, text="Save appearance", command=save).pack(side="left")
+        ttk.Button(buttons, text="Cancel", command=dialog.destroy).pack(side="left", padx=8)
+        dialog.grab_set()
+        return dialog
+
+    def run_preparation_plotting(self, mode="normalized"):
+        try:
+            cmd, output = self._preparation_plot_command(mode)
+            _, conditions = self._preparation_inputs()
+        except ValueError as exc:
+            messagebox.showerror("Preparation settings", str(exc))
+            return
+
+        def task():
+            self._run_logged_subprocess(cmd, "Preparation spike plotting")
+            return output
+
+        def success(result):
+            self.plot_out_dir_var.set(result)
+            import csv
+            notices = []
+            baseline_table = Path(result) / "CSVs" / "baseline_references.csv"
+            if any(not isinstance(c, str) for c in conditions) and baseline_table.is_file():
+                with baseline_table.open(newline="", encoding="utf-8") as stream:
+                    notices.extend(f"{row['preparation_id']} / {row['channel']}: {row['notice']}" for row in csv.DictReader(stream) if row["notice"] != "ok")
+            if any(isinstance(c, str) for c in conditions):
+                with (Path(result) / "H2O2_positive_control/h2o2_normalized_rates.csv").open(newline="", encoding="utf-8") as stream:
+                    notices.extend(f"{row['locust_id']} / {row['channel']}: {row['baseline_notice']}" for row in csv.DictReader(stream) if row["baseline_notice"] != "ok")
+            if notices:
+                messagebox.showwarning("Baseline notices", "\n".join(dict.fromkeys(notices)))
+
+        self.run_background("Epoch overlay" if mode == "overlay" else "Normalized firing rates", task, on_success=success)
 
     def _build_epoch_title_box(self, parent, row: int, columnspan: int = 4) -> int:
         epoch_box = ttk.LabelFrame(parent, text="Epoch display titles", padding=10, style="Subsection.TLabelframe")
@@ -1958,14 +2269,24 @@ class LocustPipelineApp:
     def refresh_spike_files(self) -> None:
         csv_dir = self.spike_csv_dir_var.get().strip()
         pattern = self.spike_glob_var.get().strip() or "*.csv"
-        paths = sorted(glob.glob(os.path.join(csv_dir, pattern)))
-        self.recordings = [self._new_recording_item(path, index) for index, path in enumerate(paths, start=1)]
-        if self.recordings:
+        paths = sorted(path for path in glob.glob(os.path.join(csv_dir, pattern)) if Path(path).is_file())
+        path_key = lambda path: os.path.normcase(os.path.abspath(path))
+        discovered = {path_key(path): path for path in paths}
+        selected_paths = {path_key(self.recordings[index]["path"]) for index in self._selected_any_recording_indices()}
+        existing = [item for item in self.recordings if path_key(item["path"]) in discovered]
+        existing_paths = {path_key(item["path"]) for item in existing}
+        new_paths = [path for path in paths if path_key(path) not in existing_paths]
+        self.recordings = existing + [self._new_recording_item(path, 0) for path in new_paths]
+        # Baseline is only an initial suggestion, never an override on refresh.
+        if not existing and self.recordings:
             self.recordings[0]["label"] = "Baseline"
             self.recordings[0]["epoch_label"] = "Baseline"
             self.recordings[0]["phase"] = "baseline"
-        self._refresh_recording_listbox()
-        self._update_selection_label()
+        for index, item in enumerate(self.recordings, start=1):
+            item["recording_order"] = str(index)
+        selected_indices = [index for index, item in enumerate(self.recordings) if path_key(item["path"]) in selected_paths]
+        self._refresh_recording_listbox(selected_indices)
+        self.on_recording_select()
         self.log(f"Found {len(self.recordings)} CSV file(s) for spike counting.\n")
 
     def _refresh_recording_listbox(self, selected_indices: list[int] | None = None) -> None:
@@ -2036,8 +2357,8 @@ class LocustPipelineApp:
             self._update_selection_label()
             return
         self._update_selection_label()
-        first_label = self.recordings[indices[0]]["label"] or ""
-        all_same = all(self.recordings[i]["label"] == first_label for i in indices)
+        first_label = self.recordings[indices[0]].get("epoch_label") or self.recordings[indices[0]].get("label", "")
+        all_same = all((self.recordings[i].get("epoch_label") or self.recordings[i].get("label", "")) == first_label for i in indices)
         self.selected_epoch_var.set(first_label if all_same else "")
 
     def apply_epoch_label(self) -> None:
@@ -2047,9 +2368,9 @@ class LocustPipelineApp:
         label = self.selected_epoch_var.get().strip()
         for idx in indices:
             self.recordings[idx]["label"] = label
-        self._refresh_recording_listbox()
-        for idx in indices:
-            self.recording_listbox.selection_set(idx)
+            self.recordings[idx]["epoch_label"] = label
+            self.recordings[idx]["phase"] = self._phase_from_label(label)
+        self._refresh_recording_listbox(list(indices))
         self._update_selection_label()
 
     def select_all_recordings(self) -> None:
@@ -2262,8 +2583,9 @@ class LocustPipelineApp:
             bufsize=1,
         )
         assert process.stdout is not None
-        for line in process.stdout:
-            self.log_queue.put(line)
+        with process.stdout:
+            for line in process.stdout:
+                self.log_queue.put(line)
         return_code = process.wait()
         if return_code != 0:
             raise RuntimeError(f"{failure_label} failed with exit code {return_code}.")
@@ -2559,6 +2881,8 @@ class LocustPipelineApp:
             polarity=self.spike_polarity_var.get(),
             spike_events_path=spike_events_path,
             recording_metadata=metadata,
+            shape_settings=load_script_module(SPIKE_SCRIPT, "spike_shape_settings").shape_qc.settings(
+                {key: var.get() for key, var in getattr(self, "spike_shape_vars", {}).items()}),
         )
 
     def _perform_spike_counting(self, request: SpikePipelineRequest) -> dict:
@@ -2894,55 +3218,7 @@ class LocustPipelineApp:
         phases: list[str] | None = None,
         comparisons: list[str] | None = None,
     ) -> tuple[list[str], str]:
-        phases = phases or self.selected_recorded_phases()
-        comparisons = comparisons or self.selected_comparisons()
-        if "baseline" not in phases:
-            raise ValueError("Baseline must be selected as a recorded phase.")
-        if not comparisons:
-            raise ValueError("Select at least one comparison to output.")
-
-        cmd = [
-            sys.executable,
-            str(PLOT_SCRIPT),
-            input_path,
-            "--id-cols",
-            self.plot_id_cols_var.get().strip() or "channel",
-            "--recorded-phases",
-            ",".join(phases),
-            "--comparisons",
-            ",".join(comparisons),
-            "--middle-phase-split",
-            self.middle_phase_split_var.get().strip().lower() or "whole",
-            "--post-phase-split",
-            self.post_phase_split_var.get().strip().lower() or "whole",
-        ]
-        out_dir = self.plot_out_dir_var.get().strip()
-        if out_dir:
-            cmd.extend(["--out-dir", out_dir])
-        group_col = self.plot_group_col_var.get().strip()
-        if group_col:
-            cmd.extend(["--group-col", group_col])
-        if self.pool_percent_change_var.get():
-            cmd.append("--pool-percent-change-comparisons")
-            pooled_title = self.pooled_percent_title_var.get().strip()
-            if pooled_title:
-                cmd.extend(["--pooled-percent-title", pooled_title])
-        elif self.percent_part_titles:
-            cmd.extend(["--percent-part-titles", json.dumps(self.percent_part_titles)])
-        if not self.plot_time_course_var.get():
-            cmd.append("--no-time-course")
-        if not self.percent_show_channel_labels_var.get():
-            cmd.append("--no-channel-labels")
-        perfusion_title = self._perfusion_title()
-        perfusion_label = self._perfusion_legend_label()
-        if perfusion_title:
-            cmd.extend(["--perfusion-title", perfusion_title])
-        if perfusion_label:
-            cmd.extend(["--perfusion-label", perfusion_label])
-        epoch_titles = self._epoch_title_mapping()
-        if epoch_titles:
-            cmd.extend(["--epoch-titles", json.dumps(epoch_titles)])
-        return cmd, out_dir or str(Path(input_path).with_name(f"{Path(input_path).stem}_baseline_post_plots"))
+        return self._preparation_plot_command("normalized", input_path=input_path)
 
     def _perform_baseline_post_plot(
         self,
@@ -3200,25 +3476,7 @@ class LocustPipelineApp:
         return comparisons
 
     def run_plotting(self) -> None:
-        input_path = self.plot_input_var.get().strip()
-        if not input_path:
-            messagebox.showerror("Missing input", "Choose a spike-count CSV/XLSX file first.")
-            return
-        phases = self.selected_recorded_phases()
-        comparisons = self.selected_comparisons()
-        try:
-            self._baseline_post_plot_command(input_path, phases=phases, comparisons=comparisons)
-        except ValueError as exc:
-            messagebox.showerror("Plot settings", str(exc))
-            return
-        if not self.pool_percent_change_var.get():
-            if not self.configure_percent_part_titles(input_path, phases, comparisons):
-                return
-
-        def task():
-            return self._perform_baseline_post_plot(input_path, phases=phases, comparisons=comparisons)
-
-        self.run_background("Baseline/Post plotting", task)
+        self.run_preparation_plotting("normalized")
 
     def run_continuous_spike_plot(self) -> None:
         input_path = self.plot_input_var.get().strip()

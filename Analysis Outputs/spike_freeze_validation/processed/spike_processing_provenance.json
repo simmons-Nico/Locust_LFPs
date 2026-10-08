@@ -1,0 +1,78 @@
+{
+  "pipeline": "Spike Count Multiple CSVs ordered.py::process_csvs",
+  "script_path": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Spike Processing\\Spike Count Multiple CSVs ordered.py",
+  "script_sha256": "25b6de0277ad6b1479b037ba434f95cb2129aaa0a25836a62483525b29842a6f",
+  "script_settings": {
+    "HP_SPIKE_BAND": [
+      300.0,
+      5000.0
+    ],
+    "SPIKE_Z_THR": 6.0,
+    "POLARITY": "both",
+    "REFRACTORY_MS": 1.0,
+    "AMP_MIN_UV": 40.0,
+    "AMP_MAX_UV": 700.0,
+    "W_MIN_MS": null,
+    "W_MAX_MS": null,
+    "SPIKE_CLASSIFICATION_WINDOW_MS": 0.5,
+    "SPIKE_AMPLITUDE_BIN_S": 60.0,
+    "SPIKE_AMPLITUDE_BASELINE_MINUTES": 10,
+    "SPIKE_AMPLITUDE_BASELINE_MIN_VALID_BINS": 8,
+    "SPIKE_AMPLITUDE_BASELINE_MIN_SPIKES": 20,
+    "SPIKE_AMPLITUDE_BASELINE_MAX_ABS_SLOPE_PERCENT_PER_MIN": 2.0,
+    "SPIKE_AMPLITUDE_BASELINE_MAX_CV_PERCENT": 20.0,
+    "DEFAULT_UNRECORDED_TREATMENT_LABEL": "H2O2 treatment - not recorded",
+    "TIME_COL": "time_s",
+    "MARKER_COLUMN_TOKENS": [
+      "marker",
+      "ttl",
+      "trigger",
+      "event",
+      "digital",
+      "dig",
+      "din",
+      "dout",
+      "stim",
+      "sync"
+    ]
+  },
+  "ordered_recordings": [
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Baseline Pt needle_260904.csv",
+      "mtime_ns": 1790859700321107600,
+      "size_bytes": 1016166098
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Post -100nA (1200s) (1).csv",
+      "mtime_ns": 1790860019137075000,
+      "size_bytes": 575225411
+    },
+    {
+      "path": "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Post -100nA (1200s)_260904.csv",
+      "mtime_ns": 1790859848368622200,
+      "size_bytes": 517561610
+    }
+  ],
+  "ordered_recording_list": [
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Baseline Pt needle_260904.csv",
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Post -100nA (1200s) (1).csv",
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Post -100nA (1200s)_260904.csv"
+  ],
+  "labels_by_path": {
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Baseline Pt needle_260904.csv": "Baseline",
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Post -100nA (1200s) (1).csv": "Post",
+    "C:\\Users\\simmons\\Desktop\\Exploring PSDs\\Post -100nA (1200s)_260904.csv": "Post"
+  },
+  "recording_metadata": [],
+  "window_sec": 60.0,
+  "polarity": "both",
+  "spike_count_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_freeze_validation\\processed\\ALL_RECORDINGS__spike_counts_per_min.csv",
+  "spike_events_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_freeze_validation\\processed\\spike_events.csv",
+  "spike_diagnostics_dir": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_freeze_validation\\processed\\spike_diagnostics",
+  "spike_waveform_summary_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_freeze_validation\\processed\\spike_waveform_summary.csv",
+  "spike_diagnostic_outputs_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_freeze_validation\\processed\\spike_diagnostic_outputs.csv",
+  "spike_amplitude_timecourse_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_freeze_validation\\processed\\spike_amplitude_time_course.csv",
+  "spike_amplitude_waveforms_csv": "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_freeze_validation\\processed\\spike_amplitude_waveforms.csv",
+  "spike_amplitude_plot_paths": [],
+  "spike_amplitude_qc_warnings": []
+}

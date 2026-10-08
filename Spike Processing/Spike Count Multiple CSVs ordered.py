@@ -33,6 +33,11 @@ import glob
 import math
 import argparse
 import re
+import sys
+import json
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import spike_shape_qc as shape_qc
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -505,10 +510,20 @@ def suppress_refractory_events_by_amplitude(events: list[dict], refractory_samp:
         )
 
     kept: list[dict] = []
+    # A refractory-sized bucket holds at most one accepted event. Only its
+    # immediate neighbours can conflict, avoiding an all-pairs scan while
+    # preserving the amplitude priority and exact boundary/tie rules.
+    occupied: dict[int, int] = {}
     for event in sorted(events, key=priority_key):
         sample_index = int(event["sample_index"])
-        if all(abs(sample_index - int(kept_event["sample_index"])) >= refractory_samp for kept_event in kept):
+        bucket = sample_index // refractory_samp
+        if all(
+            neighbour not in occupied
+            or abs(sample_index - occupied[neighbour]) >= refractory_samp
+            for neighbour in (bucket - 1, bucket, bucket + 1)
+        ):
             kept.append(event)
+            occupied[bucket] = sample_index
 
     return sorted(kept, key=lambda event: int(event["sample_index"]))
 
@@ -550,6 +565,7 @@ def detect_spikes_with_details(
     polarity: str | None = None,
     return_filtered_trace: bool = False,
     classification_window_ms: float | None = None,
+    shape_settings=None,
 ):
     selected_polarity = normalize_polarity(polarity)
     fs = estimate_fs_from_time(t_s)
@@ -570,9 +586,20 @@ def detect_spikes_with_details(
         classification_window_ms=classification_window_ms,
     )
     events = deduplicate_canonical_events(events)
+    cfg = shape_qc.settings(shape_settings)
+    # Evaluate all unique, amplitude/width-eligible events before suppression.
+    eligible = apply_amplitude_limits_to_events(apply_width_gate_to_events(x_hp, events, fs, W_MIN_MS, W_MAX_MS)) if cfg["mode"] != "off" else []
+    shape_reports = shape_qc.assess_events(x_hp, eligible, fs, cfg)
+    baseline_events = apply_amplitude_limits_to_events(apply_width_gate_to_events(
+        x_hp, suppress_refractory_events_by_amplitude(events, refractory), fs, W_MIN_MS, W_MAX_MS)) if cfg["mode"] != "off" else []
+    if cfg["mode"] == "reject":
+        rejected = {row["sample_index"] for row in shape_reports if row["shape_flagged"]}
+        events = [event for event in events if event["sample_index"] not in rejected]
     events = suppress_refractory_events_by_amplitude(events, refractory)
     events = apply_width_gate_to_events(x_hp, events, fs, W_MIN_MS, W_MAX_MS)
     events = apply_amplitude_limits_to_events(events)
+    if cfg["mode"] == "off":
+        baseline_events = events
 
     peaks = np.asarray([event["sample_index"] for event in events], dtype=int)
     spike_times = t_s[peaks] if peaks.size else np.array([], dtype=float)
@@ -581,6 +608,9 @@ def detect_spikes_with_details(
     n_positive = int(np.sum(event_polarity == "pos")) if event_polarity.size else 0
     n_negative = int(np.sum(event_polarity == "neg")) if event_polarity.size else 0
     details = {
+        "shape_settings": cfg,
+        "shape_reports": shape_reports,
+        "shape_before_peaks": np.asarray([e["sample_index"] for e in baseline_events], dtype=int),
         "peaks": peaks,
         "spike_times": spike_times,
         "fs": fs,
@@ -2157,6 +2187,7 @@ def process_csvs(
     spike_events_path=None,
     recording_metadata_by_path=None,
     return_outputs=False,
+    shape_settings=None,
 ):
     """Process an ordered list of raw CSV files and return the combined output CSV path."""
     ordered_csv_paths = list(csv_paths)
@@ -2164,6 +2195,7 @@ def process_csvs(
         raise FileNotFoundError("No CSV files were provided for spike counting.")
 
     selected_polarity = normalize_polarity(polarity)
+    shape_config = shape_qc.settings(shape_settings)
     selected_window_sec = float(window_sec if window_sec is not None else WINDOW_SEC)
     if selected_window_sec <= 0:
         raise ValueError("Spike-count window size must be greater than zero.")
@@ -2180,6 +2212,7 @@ def process_csvs(
     spike_event_rows = []
     diagnostic_output_rows = []
     waveform_summary_rows = []
+    shape_audit_dirs = []
     amplitude_recording_rows: list[dict] = []
     amplitude_event_rows: list[dict] = []
     amplitude_waveform_rows: list[dict] = []
@@ -2222,6 +2255,7 @@ def process_csvs(
             )
 
         for ch in chan_cols:
+            print(f"[detect] {rec_name} | {ch}: {len(t):,} samples", flush=True)
             x = df[ch].to_numpy(dtype=float)
 
             if np.any(~np.isfinite(x)):
@@ -2236,6 +2270,7 @@ def process_csvs(
                 polarity=selected_polarity,
                 return_filtered_trace=True,
                 classification_window_ms=classification_window_ms,
+                shape_settings=shape_config,
             )
             peaks = details["peaks"]
             spike_times = details["spike_times"]
@@ -2349,6 +2384,11 @@ def process_csvs(
 
             sample_interval_s = 1.0 / float(fs) if np.isfinite(fs) and fs > 0 else 0.0
             window_bounds = folded_window_bounds(t0, t1, selected_window_sec, sample_interval_s)
+            if shape_config["mode"] != "off":
+                shape_audit_dirs.append(shape_qc.write_audit(
+                    Path(out_dir) / "spike_shape_qc" / shape_config["mode"] / f"{rec_idx:03d}_{_safe_name(rec_name)}" / _safe_name(ch),
+                    rec_name, ch, details["filtered_trace_uv"], t, fs, details["shape_reports"],
+                    details["shape_before_peaks"], peaks, window_bounds, shape_config))
 
             for w, (a, b) in enumerate(window_bounds):
                 cnt = int(np.sum((spike_times >= a) & (spike_times < b)))
@@ -2540,6 +2580,7 @@ def process_csvs(
 
     print(f"\n[done] wrote:\n  {out_csv}\n  plots in: {out_dir}")
     outputs_info = {
+        "spike_shape_audit_dirs": shape_audit_dirs,
         "spike_count_csv": out_csv,
         "spike_events_csv": events_csv,
         "spike_diagnostic_outputs_csv": diagnostics_csv,
@@ -2549,6 +2590,9 @@ def process_csvs(
         "spike_amplitude_plot_paths": list(amplitude_outputs.get("plot_paths", [])),
         "spike_amplitude_qc_warnings": list(amplitude_outputs.get("warnings", [])),
     }
+    with open(os.path.join(out_dir, "spike_shape_provenance.json"), "w", encoding="utf-8") as handle:
+        json.dump({"shape_settings": shape_config, "audit_dirs": shape_audit_dirs,
+                   "method": "Bombcell-inspired per-event adaptation; not validated for locust spikes"}, handle, indent=2)
     return outputs_info if return_outputs else out_csv
 
 
@@ -2556,6 +2600,7 @@ def build_arg_parser():
     parser = argparse.ArgumentParser(
         description="Count spikes across multiple CSV recordings and make continuous per-channel plots."
     )
+    shape_qc.add_arguments(parser)
     parser.add_argument(
         "--polarity",
         default=POLARITY,
@@ -2603,6 +2648,7 @@ def main(argv=None):
         out_dir=out_dir,
         polarity=selected_polarity,
         classification_window_ms=args.classification_window_ms,
+        shape_settings=shape_qc.from_arguments(args),
         plot_spike_amplitude_change=args.plot_spike_amplitude_change,
         overlay_spike_amplitudes=args.overlay_spike_amplitudes,
         spike_amplitude_boundary_label=args.spike_amplitude_boundary_label,

@@ -1,0 +1,9 @@
+{
+  "gui_controls": "passed",
+  "totals": {
+    "off": 3,
+    "flag_only": 3,
+    "reject": 2
+  },
+  "standalone_waveform_analysis": "passed"
+}

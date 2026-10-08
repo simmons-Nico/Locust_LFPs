@@ -1,0 +1,14 @@
+{
+  "shape_settings": {
+    "mode": "reject",
+    "separation_ms": 1.0,
+    "depth_fraction": 0.2,
+    "prominence_fraction": 0.2,
+    "noise_multiplier": 3.0,
+    "padding_ms": 0.5
+  },
+  "audit_dirs": [
+    "C:\\Users\\simmons\\Desktop\\Locust_LFP_Python\\Analysis Outputs\\spike_shape_validation\\reject\\spike_shape_qc\\reject\\001_rec_Baseline_001\\A"
+  ],
+  "method": "Bombcell-inspired per-event adaptation; not validated for locust spikes"
+}
